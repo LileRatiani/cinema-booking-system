@@ -1,0 +1,174 @@
+.hero {
+  position: relative;
+  width: 100%;
+  height: 760px;
+  background-size: cover;
+  background-position: center;
+  color: white;
+}
+
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, rgba(17, 19, 21, 0.9) 0%, rgba(17, 19, 21, 0.4) 50%, transparent 100%),
+              linear-gradient(to top, rgba(17, 19, 21, 1) 0%, transparent 30%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 0 60px 40px 60px;
+}
+
+.hero-content {
+  max-width: 600px;
+  margin-bottom: 80px;
+}
+
+.hero-premiere {
+  color: #ec3013;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  margin-bottom: 16px;
+}
+
+.hero-title {
+  font-size: 56px;
+  font-weight: 800;
+  margin-bottom: 24px;
+  line-height: 1.1;
+}
+
+.hero-tags {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.tag {
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.age-tag { color: #ec3013; border-color: #ec3013; }
+
+.hero-description {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #d0d0d0;
+  margin-bottom: 32px;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 16px;
+}
+
+.btn-buy {
+  background-color: #ec3013;
+  color: white;
+  border: none;
+  border-radius: 24px;
+  padding: 12px 32px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-sessions {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: none;
+  border-radius: 24px;
+  padding: 12px 32px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hero-slider-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.progress-bars {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  margin-right: 40px;
+}
+
+.progress-bar {
+  height: 4px;
+  flex: 1;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  width: 50%; /* Just to show partial progress */
+  height: 100%;
+  background-color: #ec3013;
+}
+
+.slider-arrows {
+  display: flex;
+  gap: 12px;
+}
+
+.arrow-btn {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Separate background div so we can animate it without messing up the text layout */
+.hero-background {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  z-index: -1; 
+}
+
+/* Smooth fade-in effect for the background and text */
+.fade-in {
+  animation: fadeIn 0.8s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0.6; transform: scale(1.02); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Animate the red progress bar filling up over 5 seconds */
+.progress-fill {
+  width: 0%;
+  height: 100%;
+  background-color: #ec3013;
+}
+
+.active-fill {
+  animation: fillProgress 5s linear forwards;
+}
+
+@keyframes fillProgress {
+  from { width: 0%; }
+  to { width: 100%; }
+}
