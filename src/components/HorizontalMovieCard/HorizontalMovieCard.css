@@ -1,0 +1,91 @@
+/* Base styles shared by both cards */
+.horizontal-card {
+  display: flex;
+  background-color: #1E2031;
+  border-radius: 12px;
+  flex-shrink: 0;
+  padding: 12px;
+  gap: 16px;
+  transition: transform 0.2s ease;
+}
+
+.horizontal-card:hover {
+  transform: translateY(-4px);
+}
+
+.card-coming-soon {
+  width: 480px;  
+  height: 180px; 
+}
+
+.poster-large {
+  width: 120px;  
+}
+
+.card-recently-viewed {
+  width: 320px;
+  height: 120px;
+}
+
+
+.horizontal-poster {
+  height: 100%;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.poster-small {
+  width: 75px;
+}
+
+.horizontal-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex-grow: 1;
+  padding: 4px 0;
+}
+
+.release-date-text {
+  color: #ec3013;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.horizontal-title {
+  color: white;
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.horizontal-subtitle {
+  color: #a0a0a0;
+  font-size: 12px;
+}
+
+.horizontal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.btn-notify-small {
+  background-color: transparent;
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-notify-small:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}

@@ -1,0 +1,86 @@
+.movie-card {
+  width: 280px;
+  background-color: #1E2031;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  padding: 12px; 
+}
+
+.poster-container {
+  width: 100%;
+  height: 360px;
+  overflow: hidden;
+  border-radius: 8px; 
+}
+
+.movie-poster {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.movie-card:hover .movie-poster {
+  transform: scale(1.05);
+}
+
+.movie-info {
+  padding: 16px 4px 4px 4px; 
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.card-title {
+  color: white;
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.card-subtitle {
+  color: #a0a0a0;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+.card-tags {
+  margin-bottom: 24px;
+}
+
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+}
+
+.price, .release-date {
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.btn-buy-card {
+  background-color: #ec3013;
+  color: white;
+  border: none;
+  border-radius: 20px;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-notify {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}

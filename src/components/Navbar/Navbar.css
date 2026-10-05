@@ -1,5 +1,5 @@
 .navbar {
-  position: absolute; /* Sits on top of the Hero image */
+  position: absolute;
   top: 0;
   left: 0;
   width: 100%;
@@ -18,11 +18,6 @@
   gap: 40px;
 }
 
-.logo-accent {
-  color: #ec3013;
-}
-
-
 .logo {
   font-size: 24px;
   color: white;
@@ -32,6 +27,10 @@
 
 .logo strong {
   font-weight: 800;
+}
+
+.logo-accent {
+  color: #ec3013;
 }
 
 .nav-link {
@@ -81,7 +80,7 @@
 }
 
 .btn-signup {
-  background-color: #EC3013; /* Placeholder red */
+  background-color: #ec3013;
   color: white;
   border: none;
   border-radius: 20px;
@@ -100,23 +99,204 @@
   cursor: pointer;
 }
 
+/* --- Profile Trigger & Menu --- */
+
+.profile-menu {
+  position: relative;
+}
+
 .profile-trigger {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   cursor: pointer;
-  background-color: rgba(255, 255, 255, 0.1);
-  padding: 4px 12px 4px 4px;
-  border-radius: 20px;
 }
 
+.profile-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: white;
+}
+
+.dropdown-icon {
+  display: flex;
+  align-items: center;
+  margin-left: 8px;
+}
+
+/* Updated Avatar for images */
 .avatar {
-  background-color: #8b5cf6;
   width: 32px;
   height: 32px;
   border-radius: 50%;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
+  background-color: #8b5cf6;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-large {
+  width: 48px;
+  height: 48px;
+}
+
+/* --- Dropdown Container --- */
+
+.profile-dropdown {
+  position: absolute;
+  top: 120%;
+  right: 0;
+  width: 320px;
+  background-color: #1a1d21;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  z-index: 200;
+}
+
+.dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-fullname {
+  color: white;
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 4px 0;
+}
+
+.user-email {
+  color: #a0a0a0;
+  font-size: 12px;
+  margin: 0;
+}
+
+/* --- Profile Status Box --- */
+
+.profile-status {
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.status-incomplete {
+  background-color: rgba(236, 154, 38, 0.1); 
+}
+/* --- Profile Status Box --- */
+
+.profile-status {
+  border-radius: 8px;
+  padding: 12px;
+}
+
+/* Incomplete State (Orange) */
+.status-incomplete {
+  background-color: rgba(236, 154, 38, 0.1); 
+}
+
+.status-incomplete .status-title {
+  color: #ec9a26; 
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 4px 0;
+}
+
+.status-desc {
+  color: #a0a0a0;
+  font-size: 11px;
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* Complete State (Green) */
+.status-complete {
+  background-color: rgba(34, 197, 94, 0.1); /* Transparent green */
+}
+
+.status-complete .status-title {
+  color: #22c55e; /* Crisp green text */
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.check-icon {
+  font-size: 16px;
   font-weight: bold;
+}git
+
+.status-title {
+  color: #ec9a26; 
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 4px 0;
+}
+
+.status-desc {
+  color: #a0a0a0;
+  font-size: 11px;
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* --- Dropdown Links --- */
+
+.dropdown-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 16px;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: white;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 8px 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+}
+
+.dropdown-item:hover {
+  color: #ec3013;
+}
+
+.dropdown-item-icon {
+  font-size: 16px;
+  opacity: 0.8;
+}
+
+.logout-btn {
+  color: #ec3013;
+}
+
+.logout-btn:hover {
+  opacity: 0.8;
 }

@@ -1,0 +1,52 @@
+.home-page {
+  width: 100%;
+}
+
+.home-content {
+  padding: 40px 60px 100px 60px; /* 60px left/right aligns with the navbar */
+  display: flex;
+  flex-direction: column;
+  gap: 60px; /* Spacing between the three sections */
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.section-header h2 {
+  color: white;
+  font-size: 20px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.see-all {
+  color: #ec3013;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.see-all:hover {
+  text-decoration: underline;
+}
+
+.movie-list {
+  display: flex;
+  gap: 24px;
+  overflow-x: auto;
+  padding-bottom: 16px; /* Prevents card shadows/hover effects from being clipped */
+}
+
+/* Hide scrollbar for a cleaner look while maintaining scroll functionality */
+.movie-list::-webkit-scrollbar {
+  display: none;
+}
+.movie-list {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}

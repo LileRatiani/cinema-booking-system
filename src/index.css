@@ -5,7 +5,7 @@
 }
 
 body {
-  background-color: #e5e5e5; 
+  background-color: #070C1C; 
   display: flex;
   justify-content: center; 
   font-family: sans-serif; 
@@ -14,7 +14,7 @@ body {
 .app-container {
   width: 1920px;
   min-height: 1080px;
-  background-color: #ffffff;
+  background-color: #070C1C;
   position: relative;
   overflow-x: hidden;
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
