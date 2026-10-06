@@ -5,8 +5,8 @@ import './Navbar.css';
 
 export default function Navbar() {
   // Set to false to see the Log in / Sign up buttons
-  const [isAuthorized, setIsAuthorized] = useState(false); 
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isAuthorized, setIsAuthorized] = useState(true); 
+  const [isDropdownOpen, setIsDropdownOpen] = useState(true);
   const [isProfileComplete, setIsProfileComplete] = useState(true); 
 
   // New state variables for the Auth Modal
