@@ -4,6 +4,7 @@ import Footer from "./components/Footer/Footer";
 import Home from "./pages/Home/Home";
 import Profile from "./pages/Profile/Profile";
 import Sessions from "./pages/Sessions/Sessions";
+import MovieDetails from './pages/MovieDetails/MovieDetails';
 import "./App.css";
 
 function App() {
@@ -15,21 +16,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/sessions" element={<Sessions />} />
-          <Route
-            path="/movie/:id"
-            element={
-              <div
-                style={{
-                  paddingTop: "80px",
-                  paddingLeft: "60px",
-                  color: "white",
-                  minHeight: "80vh",
-                }}
-              >
-                <h1>Movie Details</h1>
-              </div>
-            }
-          />
+          <Route path="/movie/:id" element={<MovieDetails />} />
           <Route path="/profile" element={<Profile />} />
           
         </Routes>

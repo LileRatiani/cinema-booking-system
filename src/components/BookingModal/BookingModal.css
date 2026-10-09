@@ -1,0 +1,390 @@
+/* Modal Container */
+.book-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.book-modal-content {
+  background-color: #0b0e14;
+  width: 1100px; /* Increased width to match proportions */
+  border-radius: 16px;
+  padding: 32px;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  gap: 32px; /* Increased gap */
+}
+
+/* Header & Timer */
+.book-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center; /* Centered for the pill timer */
+}
+
+.book-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+  text-transform: uppercase;
+}
+
+.book-subtitle {
+  font-size: 13px;
+  color: #a0a2ab;
+  margin: 0;
+}
+
+.timer-box {
+  background-color: #1a1d24; /* Darker filled background */
+  padding: 10px 20px;
+  border-radius: 30px; /* Pill shape */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.timer-label {
+  font-size: 10px;
+  color: #7b7e8b;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.timer-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: white;
+}
+
+/* Navigation Steps */
+.step-indicator {
+  display: flex;
+  background-color: #1a1d24;
+  border-radius: 30px; /* Pill shape */
+  overflow: hidden;
+  padding: 4px; /* Inner padding for the toggle effect */
+  gap: 4px;
+}
+
+.step-item {
+  flex: 1;
+  text-align: center;
+  padding: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #7b7e8b;
+  border-radius: 26px; /* Pill shape inner */
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.step-item.active {
+  background-color: #ec3013;
+  color: white;
+}
+
+/* Layout Body */
+.book-body {
+  display: flex;
+  gap: 32px;
+}
+
+/* Seats Section */
+.hall-map-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+}
+
+.screen-indicator {
+  width: 100%; /* Full width */
+  height: 36px;
+  background-color: #262935; /* Solid gray fill */
+  border-radius: 20px; /* Pill shape */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+/* Stalls label positioning */
+.stalls-label {
+  align-self: flex-start;
+  font-size: 12px;
+  color: #a0a2ab;
+  font-weight: 600;
+  margin-bottom: -16px;
+  padding-left: 40px; /* Align with seats */
+}
+
+.seats-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.seat-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.row-label {
+  width: 24px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  text-align: left;
+  margin-right: 8px;
+}
+
+.seat-btn {
+  width: 44px; /* Larger seats */
+  height: 44px; /* Larger seats */
+  border-radius: 12px; /* More rounded */
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+}
+
+/* Center Aisle Gap */
+.seat-btn:nth-child(6) {
+  margin-right: 32px; /* Gap after 5th seat (label is child 1) */
+}
+
+.seat-btn.available {
+  background-color: transparent;
+  border-color: rgba(255, 255, 255, 0.15);
+  color: white;
+}
+
+.seat-btn.available:hover {
+  border-color: #ec3013;
+}
+
+.seat-btn.selected {
+  background-color: #ec3013;
+  border-color: #ec3013;
+  color: white;
+}
+
+.seat-btn.sold {
+  background-color: #1a1c23;
+  color: #4a4c57;
+  cursor: not-allowed;
+}
+
+/* Striped pattern for held/unavailable seats */
+.seat-btn.held {
+  background: repeating-linear-gradient(
+    -45deg,
+    #252732,
+    #252732 6px,
+    #1f212a 6px,
+    #1f212a 12px
+  );
+  color: #4a4c57;
+  cursor: not-allowed;
+  border: none;
+}
+
+/* Legend */
+.seat-legend {
+  display: flex;
+  gap: 24px;
+  margin-top: 16px;
+}
+
+.seat-legend span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #7b7e8b;
+}
+
+.legend-box {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+}
+.legend-box.available { border: 1px solid rgba(255,255,255,0.2); }
+.legend-box.selected { background-color: #ec3013; }
+.legend-box.sold { background-color: #1a1c23; }
+.legend-box.held { 
+  background: repeating-linear-gradient(-45deg, #252732, #252732 3px, #1f212a 3px, #1f212a 6px); 
+}
+
+/* Right Sidebar (Tickets / Checkout Summary) */
+.ticket-types-section, .checkout-summary {
+  width: 340px; /* Slightly wider */
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background-color: #12141c; /* Sidebar distinct background */
+  padding: 24px;
+  border-radius: 12px;
+}
+
+.ticket-types-section h3, .checkout-summary h3 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 16px 0;
+}
+
+.empty-seats {
+  font-size: 13px;
+  color: #7b7e8b;
+  line-height: 1.5;
+}
+
+.selected-seats-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex-grow: 1;
+}
+
+.seat-ticket-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.seat-id {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ticket-toggles {
+  display: flex;
+  background-color: #1a1d21;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.type-btn {
+  flex: 1;
+  background: none;
+  border: none;
+  color: #7b7e8b;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.type-btn.active {
+  background-color: #ec3013;
+  color: white;
+}
+
+.seat-price {
+  align-self: flex-end;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.subtotal-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  padding-top: 24px;
+}
+
+.subtotal-bar span:first-child {
+  font-size: 11px;
+  font-weight: 700;
+  color: #7b7e8b;
+  text-transform: uppercase;
+}
+
+.subtotal-amount {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.btn-next {
+  background-color: #ec3013;
+  color: white;
+  border: none;
+  border-radius: 30px; /* Pill shape */
+  padding: 16px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 16px;
+  transition: all 0.2s;
+}
+
+.btn-next:disabled {
+  background-color: #4a4d5a; /* Dark gray for disabled */
+  color: #8c8f9b;
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+/* Checkout Form */
+.checkout-form {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+}
+
+.input-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.input-group label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #a0a2ab;
+}
+
+.input-group input {
+  background-color: #1a1c24;
+  border: 1px solid transparent;
+  padding: 14px;
+  border-radius: 8px;
+  color: white;
+  font-size: 14px;
+  outline: none;
+}
+
+.input-group input:focus {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.input-group input.error {
+  border-color: #ec3013;
+}
