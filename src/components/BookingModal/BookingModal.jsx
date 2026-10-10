@@ -179,7 +179,21 @@ export default function BookingModal({ session, onClose }) {
                   <div className="selected-seats-list">
                     {selectedSeats.map(seat => (
                       <div key={seat.id} className="seat-ticket-row">
-                        <div className="seat-id">Seat {seat.id}</div>
+                        <div className="seat-header">
+                          <span className="seat-id">Seat &nbsp;&nbsp;<strong>{seat.id}</strong></span>
+                          <div className="seat-price-remove">
+                            <span className="seat-price-top">₾{seat.price.toFixed(0)}</span>
+                            <button 
+                              className="btn-remove-seat" 
+                              onClick={() => toggleSeat(seat.id)}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <div className="seat-divider"></div>
+                        
                         <div className="ticket-toggles">
                           {['Child', 'Student', 'Adult'].map(type => (
                             <button 
@@ -191,7 +205,6 @@ export default function BookingModal({ session, onClose }) {
                             </button>
                           ))}
                         </div>
-                        <div className="seat-price">₾{seat.price.toFixed(2)}</div>
                       </div>
                     ))}
                   </div>
@@ -241,6 +254,7 @@ export default function BookingModal({ session, onClose }) {
                       value={form.cardNumber}
                       onChange={e => setForm({ ...form, cardNumber: e.target.value })}
                       className={formErrors.cardNumber ? 'error' : ''}
+                      autoComplete="off"
                     />
                   </div>
                 </div>
@@ -253,6 +267,7 @@ export default function BookingModal({ session, onClose }) {
                       value={form.expiry}
                       onChange={e => setForm({ ...form, expiry: e.target.value })}
                       className={formErrors.expiry ? 'error' : ''}
+                      autoComplete="off"
                     />
                   </div>
                   <div className="input-group">
@@ -263,6 +278,7 @@ export default function BookingModal({ session, onClose }) {
                       value={form.cvv}
                       onChange={e => setForm({ ...form, cvv: e.target.value })}
                       className={formErrors.cvv ? 'error' : ''}
+                      autoComplete="new-password"
                     />
                   </div>
                 </div>
@@ -272,25 +288,37 @@ export default function BookingModal({ session, onClose }) {
                 <h3>Summary</h3>
                 <div className="summary-card">
                   <h4>{session.movieTitle}</h4>
-                  <p className="sum-meta">{session.hall} · {session.time}</p>
+                  <p className="sum-meta">{session.hall} · Tue 15 Sep · {session.time}</p>
+                  
+                  <div className="seat-divider"></div>
+                  
                   <div className="sum-row">
-                    <span>Seats</span>
-                    <span>{selectedSeats.map(s => s.id).join(', ')}</span>
+                    <span className="sum-label">Seats</span>
+                    <span className="sum-value">{selectedSeats.map(s => s.id).join(', ')}</span>
                   </div>
                   <div className="sum-row">
-                    <span>Tickets</span>
-                    <span>{selectedSeats.length}x Tickets</span>
+                    <span className="sum-label">Tickets</span>
+                    <span className="sum-value">
+                      {/* Dynamically count ticket types for the summary */}
+                      {Object.entries(
+                        selectedSeats.reduce((acc, seat) => {
+                          acc[seat.type] = (acc[seat.type] || 0) + 1;
+                          return acc;
+                        }, {})
+                      ).map(([type, count]) => `${count} x ${type}`).join(', ')}
+                    </span>
                   </div>
                 </div>
                 
                 <div className="subtotal-bar">
                   <span>SUBTOTAL</span>
-                  <span className="subtotal-amount">₾{subtotal.toFixed(2)}</span>
+                  <span className="subtotal-amount">₾{subtotal.toFixed(0)}</span>
                 </div>
                 <button 
                   className="btn-next" 
                   onClick={handleCheckout}
-                  disabled={isSubmitting}
+                  /* Disables the button if any input is empty OR if the form is submitting */
+                  disabled={!form.cardNumber || !form.expiry || !form.cvv || isSubmitting} 
                 >
                   {isSubmitting ? 'Processing...' : 'Pay & Complete order'}
                 </button>
@@ -309,19 +337,34 @@ export default function BookingModal({ session, onClose }) {
               
               <div className="success-card">
                 <div className="succ-header">
-                  <img src={MOVIE_DATA.poster} alt="" />
-                  <div>
+                  {/* Using a placeholder poster image to prevent crashes since MOVIE_DATA isn't imported here */}
+                  <img src="https://images.unsplash.com/photo-1626814026160-2237a95fc5a0?q=80&w=400&auto=format&fit=crop" alt="Poster" />
+                  <div className="succ-header-info">
                     <h4>{session.movieTitle}</h4>
-                    <p>{session.venue} · {session.hall} · {session.time}</p>
+                    <p>{session.venue} · {session.hall} · Tue 15 Sep · {session.time}</p>
                   </div>
                 </div>
+                
                 <div className="succ-row">
-                  <span>Seats</span>
-                  <span>{selectedSeats.map(s => s.id).join(', ')}</span>
+                  <span className="succ-label">Seats</span>
+                  <span className="succ-value">{selectedSeats.map(s => s.id).join(', ')}</span>
                 </div>
+                
+                <div className="succ-row">
+                  <span className="succ-label">Tickets</span>
+                  <span className="succ-value">
+                    {Object.entries(
+                      selectedSeats.reduce((acc, seat) => {
+                        acc[seat.type] = (acc[seat.type] || 0) + 1;
+                        return acc;
+                      }, {})
+                    ).map(([type, count]) => `${count} x ${type}`).join(', ')}
+                  </span>
+                </div>
+                
                 <div className="succ-row total">
-                  <span>TOTAL PAID</span>
-                  <span>₾{subtotal.toFixed(2)}</span>
+                  <span className="succ-label">TOTAL PAID</span>
+                  <span className="succ-value-large">₾{subtotal.toFixed(0)}</span>
                 </div>
               </div>
               

@@ -11,21 +11,21 @@
 }
 
 .book-modal-content {
-  background-color: #0b0e14;
-  width: 1100px; /* Increased width to match proportions */
+  background-color: #070C1C;
+  width: 1100px; 
   border-radius: 16px;
   padding: 32px;
   color: white;
   display: flex;
   flex-direction: column;
-  gap: 32px; /* Increased gap */
+  gap: 32px; 
 }
 
 /* Header & Timer */
 .book-header {
   display: flex;
   justify-content: space-between;
-  align-items: center; /* Centered for the pill timer */
+  align-items: center; 
 }
 
 .book-title {
@@ -42,9 +42,9 @@
 }
 
 .timer-box {
-  background-color: #1a1d24; /* Darker filled background */
+  background-color: #1E2031; 
   padding: 10px 20px;
-  border-radius: 30px; /* Pill shape */
+  border-radius: 30px; 
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -66,23 +66,21 @@
 /* Navigation Steps */
 .step-indicator {
   display: flex;
-  background-color: #1a1d24;
-  border-radius: 30px; /* Pill shape */
-  overflow: hidden;
-  padding: 4px; /* Inner padding for the toggle effect */
-  gap: 4px;
+  background-color: #242635; 
+  border-radius: 30px; 
+  padding: 4px; 
+  margin-bottom: 32px;
 }
 
 .step-item {
   flex: 1;
   text-align: center;
   padding: 12px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
-  color: #7b7e8b;
-  border-radius: 26px; /* Pill shape inner */
-  cursor: pointer;
-  transition: all 0.2s ease;
+  color: #a0a2ab;
+  border-radius: 26px; 
+  cursor: default;
 }
 
 .step-item.active {
@@ -106,28 +104,30 @@
 }
 
 .screen-indicator {
-  width: 100%; /* Full width */
+  width: 100%;
   height: 36px;
-  background-color: #262935; /* Solid gray fill */
-  border-radius: 20px; /* Pill shape */
+  background-color: #2A2C3D; 
+  border-radius: 18px; 
+  border: none; 
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
-  color: #ffffff;
+  color: white;
   letter-spacing: 2px;
-  text-transform: uppercase;
+  margin-bottom: 16px;
 }
 
 /* Stalls label positioning */
 .stalls-label {
   align-self: flex-start;
-  font-size: 12px;
-  color: #a0a2ab;
-  font-weight: 600;
-  margin-bottom: -16px;
-  padding-left: 40px; /* Align with seats */
+  font-size: 10px;
+  color: #7b7e8b;
+  font-weight: 700;
+  margin-top: 16px;
+  margin-bottom: 16px;
+  padding-left: 0;
 }
 
 .seats-grid {
@@ -152,11 +152,11 @@
 }
 
 .seat-btn {
-  width: 44px; /* Larger seats */
-  height: 44px; /* Larger seats */
-  border-radius: 12px; /* More rounded */
+  width: 44px; 
+  height: 44px; 
+  border-radius: 8px; 
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -167,7 +167,7 @@
 
 /* Center Aisle Gap */
 .seat-btn:nth-child(6) {
-  margin-right: 32px; /* Gap after 5th seat (label is child 1) */
+  margin-right: 32px; 
 }
 
 .seat-btn.available {
@@ -235,13 +235,14 @@
 
 /* Right Sidebar (Tickets / Checkout Summary) */
 .ticket-types-section, .checkout-summary {
-  width: 340px; /* Slightly wider */
+  width: 320px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  background-color: #12141c; /* Sidebar distinct background */
-  padding: 24px;
-  border-radius: 12px;
+  background-color: transparent !important; 
+  padding: 0 0 0 40px !important; 
+  border-left: 1px solid rgba(255, 255, 255, 0.05); 
+  border-radius: 0;
 }
 
 .ticket-types-section h3, .checkout-summary h3 {
@@ -263,46 +264,85 @@
   flex-grow: 1;
 }
 
+/* Replaced to match the dark card style from Figma */
 .seat-ticket-row {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  gap: 16px;
+  background-color: #1E2031; 
+  border-radius: 16px;
+  padding: 16px 20px;
+}
+
+.seat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .seat-id {
   font-size: 13px;
-  font-weight: 700;
+  color: #7b7e8b;
 }
 
+.seat-id strong {
+  color: white;
+  font-size: 14px;
+}
+
+.seat-price-remove {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.seat-price-top {
+  font-size: 14px;
+  font-weight: 700;
+  color: white;
+}
+
+.btn-remove-seat {
+  background: none;
+  border: none;
+  color: #7b7e8b;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.2s;
+}
+
+.btn-remove-seat:hover {
+  color: white;
+}
+
+.seat-divider {
+  height: 1px;
+  background-color: rgba(255, 255, 255, 0.05); 
+}
+
+/* Replaced to separate the pill buttons */
 .ticket-toggles {
   display: flex;
-  background-color: #1a1d21;
-  border-radius: 20px;
-  overflow: hidden;
+  gap: 12px; 
 }
 
 .type-btn {
   flex: 1;
-  background: none;
+  background-color: #242635; 
   border: none;
-  color: #7b7e8b;
+  border-radius: 20px;
+  color: #e0e0e0;
   font-size: 11px;
-  font-weight: 600;
-  padding: 8px;
+  font-weight: 500;
+  padding: 10px 0;
   cursor: pointer;
+  transition: background-color 0.2s;
 }
 
 .type-btn.active {
   background-color: #ec3013;
   color: white;
-}
-
-.seat-price {
-  align-self: flex-end;
-  font-size: 14px;
-  font-weight: 700;
 }
 
 .subtotal-bar {
@@ -329,7 +369,7 @@
   background-color: #ec3013;
   color: white;
   border: none;
-  border-radius: 30px; /* Pill shape */
+  border-radius: 30px; 
   padding: 16px;
   font-size: 14px;
   font-weight: 700;
@@ -339,7 +379,7 @@
 }
 
 .btn-next:disabled {
-  background-color: #4a4d5a; /* Dark gray for disabled */
+  background-color: #4a4d5a; 
   color: #8c8f9b;
   opacity: 1;
   cursor: not-allowed;
@@ -372,7 +412,7 @@
 }
 
 .input-group input {
-  background-color: #1a1c24;
+  background-color: #1E2031;
   border: 1px solid transparent;
   padding: 14px;
   border-radius: 8px;
@@ -387,4 +427,199 @@
 
 .input-group input.error {
   border-color: #ec3013;
+}
+/* Summary Card Styling */
+.summary-card {
+  background-color: #1E2031; 
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: auto; /* Pushes the subtotal to the bottom */
+}
+
+.summary-card h4 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+  color: white;
+}
+
+.sum-meta {
+  font-size: 13px;
+  color: #7b7e8b;
+  margin: 0 0 4px 0;
+}
+
+.summary-card .seat-divider {
+  margin: 4px 0; /* Add space around the divider line inside the card */
+}
+
+.sum-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sum-label {
+  font-size: 13px;
+  color: #7b7e8b;
+}
+
+.sum-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: white;
+}
+
+/* ===============================
+   STEP 3: SUCCESS VIEW STYLES
+=============================== */
+.success-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 20px 0;
+}
+
+.success-icon {
+  width: 56px;
+  height: 56px;
+  background-color: #4ade80; /* Bright green checkmark circle */
+  color: #0b0e14; /* Dark checkmark to contrast */
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 28px;
+  font-weight: 900;
+  margin-bottom: 24px;
+}
+
+.success-view h2 {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 12px 0;
+}
+
+.success-view p {
+  font-size: 13px;
+  color: #a0a2ab;
+  margin: 0 0 24px 0;
+}
+
+.order-badge {
+  background-color: #242635; /* Dark gray pill */
+  color: white;
+  padding: 10px 24px;
+  border-radius: 30px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 40px;
+}
+
+.success-card {
+  background-color: #1E2031; /* Dark receipt card */
+  width: 100%;
+  max-width: 540px; /* Constrain width so it matches Figma */
+  border-radius: 16px;
+  padding: 24px;
+  text-align: left;
+}
+
+.succ-header {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding-bottom: 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05); /* Separator line */
+  margin-bottom: 16px;
+}
+
+.succ-header img {
+  width: 48px;
+  height: 64px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.succ-header-info h4 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 6px 0;
+  color: white;
+  text-transform: uppercase;
+}
+
+.succ-header-info p {
+  font-size: 12px;
+  color: #7b7e8b;
+  margin: 0;
+}
+
+.succ-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+}
+
+.succ-label {
+  font-size: 13px;
+  color: #7b7e8b;
+}
+
+.succ-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: white;
+}
+
+.succ-row.total {
+  margin-top: 12px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05); /* Separator line above total */
+}
+
+.succ-row.total .succ-label {
+  text-transform: uppercase;
+}
+
+.succ-value-large {
+  font-size: 20px;
+  font-weight: 700;
+  color: white;
+}
+
+.success-actions {
+  display: flex;
+  gap: 16px;
+  margin-top: 40px;
+}
+
+.btn-primary, .btn-secondary {
+  padding: 14px 28px;
+  border-radius: 30px;
+  font-size: 14px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn-primary {
+  background-color: #ec3013; /* Orange */
+  color: white;
+}
+
+.btn-secondary {
+  background-color: #242635; /* Dark gray */
+  color: white;
+}
+
+.btn-primary:hover, .btn-secondary:hover {
+  opacity: 0.9;
 }

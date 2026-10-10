@@ -1,19 +1,28 @@
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
-import AuthModal from '../AuthModal/AuthModal'; // Import the new modal
+import AuthModal from '../AuthModal/AuthModal';
 import './Navbar.css';
 
+// Mock data to match the Figma search results
+const MOCK_MOVIES = [
+  { id: 1, title: 'The Odyssey', type: 'Film', age: '12+', duration: '134 min', price: 'from ₾16', status: 'available', poster: 'https://images.unsplash.com/photo-1626814026160-2237a95fc5a0?q=80&w=100&auto=format&fit=crop' },
+  { id: 2, title: 'The Father', type: 'Film', age: '12+', duration: '134 min', price: 'from ₾12', status: 'available', poster: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?q=80&w=100&auto=format&fit=crop' },
+  { id: 3, title: 'The Batman', type: 'Film', age: '12+', duration: '134 min', price: 'Coming Soon', status: 'coming_soon', poster: 'https://images.unsplash.com/photo-1509347528160-9a9e33742cdb?q=80&w=100&auto=format&fit=crop' },
+  { id: 4, title: 'The Brutalist', type: 'Film', age: '12+', duration: '134 min', price: 'from ₾16', status: 'available', poster: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?q=80&w=100&auto=format&fit=crop' }
+];
+
 export default function Navbar() {
-  // Set to false to see the Log in / Sign up buttons
   const [isAuthorized, setIsAuthorized] = useState(true); 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isProfileComplete, setIsProfileComplete] = useState(true); 
 
-  // New state variables for the Auth Modal
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authView, setAuthView] = useState('login'); // 'login' or 'signup'
+  const [authView, setAuthView] = useState('login'); 
 
-  // Helper functions to open specific views
+  // --- NEW: Search Overlay States ---
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
   const openLogin = () => {
     setAuthView('login');
     setIsAuthModalOpen(true);
@@ -23,6 +32,11 @@ export default function Navbar() {
     setAuthView('signup');
     setIsAuthModalOpen(true);
   };
+
+  // Filter movies based on search query
+  const filteredResults = MOCK_MOVIES.filter(movie => 
+    movie.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <>
@@ -37,14 +51,83 @@ export default function Navbar() {
         </div>
 
         <div className="nav-right">
-          <div className="search-bar">
-            <span className="search-icon">🔍</span>
-            <input type="text" placeholder="Search films and live events" />
+          
+          {/* --- UPDATED: Search Container --- */}
+          <div className="search-container">
+            <div className={`search-bar ${isSearchOpen ? 'active' : ''}`}>
+              <span className="search-icon">🔍</span>
+              <input 
+                type="text" 
+                placeholder="Search films and live events" 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => setIsSearchOpen(true)}
+              />
+              {searchQuery && (
+                <button className="clear-search" onClick={() => setSearchQuery('')}>✕</button>
+              )}
+            </div>
+
+            {/* Search Overlay Dropdown */}
+            {isSearchOpen && (
+              <>
+                <div className="search-backdrop" onClick={() => setIsSearchOpen(false)}></div>
+                <div className="search-dropdown">
+                  
+                  {searchQuery === '' ? (
+                    // 1. Initial Prompt State
+                    <div className="search-prompt">
+                      <div className="prompt-icon">🍿</div>
+                      <h4>What do you want to watch?</h4>
+                      <p>Search by title, director or cast</p>
+                      <button className="btn-browse" onClick={() => setIsSearchOpen(false)}>Browse all sessions</button>
+                    </div>
+                  ) : filteredResults.length > 0 ? (
+                    // 2. Results State
+                    <div className="search-results">
+                      <div className="results-header">
+                        <span>FILMS & EVENTS</span>
+                        <span>{filteredResults.length} results</span>
+                      </div>
+                      <div className="results-list">
+                        {filteredResults.map(movie => (
+                          <div key={movie.id} className="result-item">
+                            <img src={movie.poster} alt={movie.title} className="result-poster" />
+                            <div className="result-info">
+                              {/* Simple highlighting simulation */}
+                              <h4>
+                                {movie.title.toLowerCase().startsWith(searchQuery.toLowerCase()) ? (
+                                  <><strong>{movie.title.slice(0, searchQuery.length)}</strong>{movie.title.slice(searchQuery.length)}</>
+                                ) : (
+                                  movie.title
+                                )}
+                              </h4>
+                              <p>{movie.type} · {movie.age} · {movie.duration}</p>
+                            </div>
+                            <div className={`result-price ${movie.status === 'coming_soon' ? 'coming-soon' : ''}`}>
+                              {movie.price}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    // 3. No Results State
+                    <div className="search-prompt">
+                      <div className="prompt-icon">🔍</div>
+                      <h4>No results for "{searchQuery}"</h4>
+                      <p>Check the spelling or try another film or live event.</p>
+                      <button className="btn-browse" onClick={() => setIsSearchOpen(false)}>Browse all sessions</button>
+                    </div>
+                  )}
+                  
+                </div>
+              </>
+            )}
           </div>
 
           {!isAuthorized ? (
             <div className="auth-buttons">
-              {/* Attach the click handlers here */}
               <button className="btn-signup" onClick={openSignup}>Sign up</button>
               <button className="btn-login" onClick={openLogin}>Log in</button>
             </div>
@@ -117,7 +200,6 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* Render the Modal outside the nav structure so it overlays the whole screen */}
       <AuthModal 
         isOpen={isAuthModalOpen} 
         onClose={() => setIsAuthModalOpen(false)} 

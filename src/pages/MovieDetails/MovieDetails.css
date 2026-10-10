@@ -18,7 +18,7 @@
   display: flex;
   gap: 40px;
   align-items: flex-end;
-  max-width: 1200px;
+  width: 100%;
 }
 
 .movie-page .hero-poster {
@@ -69,8 +69,8 @@
   display: flex;
   gap: 60px;
   padding: 60px;
-  max-width: 1400px;
-  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .movie-page .sessions-container {
@@ -83,7 +83,7 @@
   margin: 0 0 24px 0;
 }
 
-/* --- UPDATED DATE SELECTOR --- */
+/* --- DATE SELECTOR --- */
 .movie-page .date-selector {
   display: flex;
   gap: 12px;
@@ -91,7 +91,7 @@
 }
 
 .movie-page .date-btn {
-  background-color: #1a1d21;
+  background-color: #1E2031;
   border: 1px solid transparent;
   border-radius: 12px;
   min-width: 72px;
@@ -106,7 +106,7 @@
 }
 
 .movie-page .date-btn:hover {
-  background-color: #242830;
+  background-color: #1E2031;
 }
 
 .movie-page .date-btn.active {
@@ -128,7 +128,7 @@
   font-weight: 700;
 }
 
-/* --- UPDATED HALLS & SESSIONS --- */
+/* --- HALLS & SESSIONS --- */
 .movie-page .venues-list {
   display: flex;
   flex-direction: column;
@@ -148,19 +148,22 @@
   flex-direction: row;
   flex-wrap: wrap; 
   gap: 24px;
-  align-items: flex-start;
+  align-items: flex-start; /* Prevents cards from stretching vertically */
   justify-content: flex-start;
+  width: 100%;
 }
 
 .movie-page .hall-card {
-  background-color: #1a1d21;
+  background-color: #1E2031;
   border-radius: 16px;
-  padding: 24px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
+  flex: 0 1 auto; /* Keeps cards compact based on content height */
   width: max-content;
   max-width: 100%;
+  box-sizing: border-box;
 }
 
 .movie-page .hall-title {
@@ -177,7 +180,7 @@
   flex-wrap: wrap;
 }
 
-/* NEW TICKET STYLING */
+/* TICKET STYLING */
 .movie-page .session-ticket {
   background-color: #0b0e14;
   border-radius: 12px;
@@ -190,7 +193,7 @@
   color: white;
   text-align: left;
   transition: transform 0.2s;
-  height: 96px; 
+  height: 76px; 
   width: max-content;
 }
 
@@ -206,7 +209,7 @@
 
 .movie-page .ticket-left, 
 .movie-page .ticket-right {
-  padding: 16px 20px;
+  padding: 10px 16px;
   display: flex;
   flex-direction: column;
   justify-content: space-between; 
@@ -217,11 +220,11 @@
 .movie-page .ticket-divider {
   width: 0;
   border-left: 2px dashed rgba(255, 255, 255, 0.1);
-  margin: 12px 0;
+  margin: 10px 0;
 }
 
 .movie-page .sess-time {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 700;
 }
 
@@ -232,28 +235,28 @@
 
 .movie-page .sess-tag {
   background-color: #1a1d21;
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 9px;
   color: #a0a2ab;
   font-weight: 700;
 }
 
 .movie-page .sess-price {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   color: #ec3013;
 }
 
 .movie-page .sess-seats {
-  font-size: 12px;
+  font-size: 11px;
   color: #a0a2ab;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 
-/* --- UPDATED DETAILS SIDEBAR --- */
+/* --- DETAILS SIDEBAR --- */
 .movie-page .details-sidebar {
   width: 320px;
   flex-shrink: 0;
