@@ -3,12 +3,6 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { fetchSessions } from '../../api';
 import './Sessions.css';
 
-const TIMES_OF_DAY = [
-  { id: 'morning', label: 'Morning', desc: 'before 12:00' },
-  { id: 'afternoon', label: 'Afternoon', desc: '12:00–18:00' },
-  { id: 'evening', label: 'Evening', desc: 'after 18:00' }
-];
-
 const generateDates = () => {
   const dates = [];
   const today = new Date("2026-10-08T00:00:00+04:00"); 
@@ -24,6 +18,7 @@ const generateDates = () => {
   return dates;
 };
 
+// Make sure { filterOptions } is properly destructured right here!
 export default function Sessions({ filterOptions }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -47,12 +42,17 @@ export default function Sessions({ filterOptions }) {
     const loadSessions = async () => {
       setIsLoading(true);
       
-      // Create params object and omit 'page' so the backend returns all filtered items 
-      // for client-side slicing across pages.
-      const paramsObject = Object.fromEntries([...searchParams]);
-      delete paramsObject.page;
+      const apiParams = new URLSearchParams();
       
-      const response = await fetchSessions(paramsObject);
+      if (selectedDate) apiParams.append('date', selectedDate);
+      if (sortOrder) apiParams.append('sort', sortOrder);
+      
+      selectedVenues.forEach(id => apiParams.append('venue_id[]', id));
+      selectedFormats.forEach(id => apiParams.append('format_id[]', id));
+      selectedLangs.forEach(id => apiParams.append('language_id[]', id));
+      selectedTimes.forEach(time => apiParams.append('time[]', time));
+
+      const response = await fetchSessions(apiParams.toString());
       const items = response?.data || response || [];
       
       setSessionsData(items);
@@ -106,6 +106,7 @@ export default function Sessions({ filterOptions }) {
           
           <div className="sess-filter-section">
             <h3 className="sess-filter-label">VENUE</h3>
+            {/* Safely map over the dynamic global venues */}
             {filterOptions?.venues?.map(v => (
               <label key={v.id} className="sess-custom-checkbox">
                 <input 
@@ -167,7 +168,8 @@ export default function Sessions({ filterOptions }) {
 
           <div className="sess-filter-section">
             <h3 className="sess-filter-label">TIME OF DAY</h3>
-            {TIMES_OF_DAY.map(t => (
+            {/* Swapped out the hardcoded array for the dynamic backend array */}
+            {filterOptions?.timeBands?.map(t => (
               <label key={t.id} className="sess-custom-checkbox">
                 <input 
                   type="checkbox" 
@@ -175,7 +177,7 @@ export default function Sessions({ filterOptions }) {
                   onChange={() => toggleArrayParam('time', selectedTimes, t.id)}
                 />
                 <span className="sess-checkmark"></span>
-                {t.label} <span className="sess-checkbox-desc">· {t.desc}</span>
+                {t.label} <span className="sess-checkbox-desc">· {t.description}</span>
               </label>
             ))}
           </div>
@@ -192,6 +194,7 @@ export default function Sessions({ filterOptions }) {
             <div className="sess-sort-control">
               <span>Sort:</span>
               <select value={sortOrder} onChange={(e) => updateParams('sort', e.target.value)}>
+                {/* Optional: You could also dynamically map filterOptions?.sorts here if you wanted! */}
                 <option value="time_asc">Showtime: earliest first</option>
                 <option value="time_desc">Showtime: latest first</option>
                 <option value="price_asc">Price: Low to High</option>

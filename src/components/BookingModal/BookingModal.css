@@ -100,11 +100,12 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 32px;
+  gap: 20px; 
 }
 
 .screen-indicator {
   width: 100%;
+  max-width: 500px; 
   height: 36px;
   background-color: #2A2C3D; 
   border-radius: 18px; 
@@ -116,58 +117,86 @@
   font-weight: 700;
   color: white;
   letter-spacing: 2px;
-  margin-bottom: 16px;
+  margin-bottom: 24px;
 }
 
-/* Stalls label positioning */
+/* Grouping for Sections (Stalls, Balcony, etc.) */
+.hall-section-group {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin-bottom: 24px;
+}
+
 .stalls-label {
   align-self: flex-start;
   font-size: 10px;
   color: #7b7e8b;
   font-weight: 700;
-  margin-top: 16px;
-  margin-bottom: 16px;
+  margin-top: 0;
+  margin-bottom: 12px;
   padding-left: 0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .seats-grid {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  width: 100%;
 }
 
 .seat-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  /* Instead of justify-content: center, we center the fit-content block */
+  width: fit-content;
+  margin: 0 auto 8px auto; 
+  gap: 6px; 
+  position: relative; /* Allows the label to hang outside the block */
 }
 
 .row-label {
+  position: absolute;
+  right: 100%; /* Attaches it to the far left of the first seat */
+  top: 50%;
+  transform: translateY(-50%);
   width: 24px;
   font-size: 13px;
   font-weight: 700;
-  color: #ffffff;
-  text-align: left;
-  margin-right: 8px;
+  color: #7b7e8b;
+  text-align: right;
+  margin-right: 12px;
 }
 
+/* Seat Buttons */
 .seat-btn {
-  width: 44px; 
-  height: 44px; 
+  box-sizing: border-box; /* Ensures borders don't change physical dimensions */
+  width: 36px; 
+  height: 36px; 
   border-radius: 8px; 
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   display: flex;
   justify-content: center;
   align-items: center;
   cursor: pointer;
   transition: all 0.2s;
-  border: 1px solid transparent;
+  border: 1px solid transparent; /* Baseline border */
+  padding: 0;
 }
 
-/* Center Aisle Gap */
-.seat-btn:nth-child(6) {
-  margin-right: 32px; 
+.seat-btn.held {
+  background: repeating-linear-gradient(
+    -45deg,
+    #252732,
+    #252732 6px,
+    #1f212a 6px,
+    #1f212a 12px
+  );
+  color: #4a4c57;
+  cursor: not-allowed;
+  border-color: transparent; /* Replaced 'border: none' to preserve the 36x36px size */
 }
 
 .seat-btn.available {
@@ -192,18 +221,18 @@
   cursor: not-allowed;
 }
 
-/* Striped pattern for held/unavailable seats */
-.seat-btn.held {
-  background: repeating-linear-gradient(
-    -45deg,
-    #252732,
-    #252732 6px,
-    #1f212a 6px,
-    #1f212a 12px
-  );
-  color: #4a4c57;
-  cursor: not-allowed;
-  border: none;
+
+
+/* Dynamic Map Spacers */
+.seat-unavailable {
+  width: 36px;
+  height: 36px;
+  pointer-events: none;
+}
+
+.aisle-spacer {
+  width: 24px;
+  pointer-events: none;
 }
 
 /* Legend */
@@ -264,7 +293,6 @@
   flex-grow: 1;
 }
 
-/* Replaced to match the dark card style from Figma */
 .seat-ticket-row {
   display: flex;
   flex-direction: column;
@@ -321,7 +349,6 @@
   background-color: rgba(255, 255, 255, 0.05); 
 }
 
-/* Replaced to separate the pill buttons */
 .ticket-toggles {
   display: flex;
   gap: 12px; 
@@ -428,6 +455,7 @@
 .input-group input.error {
   border-color: #ec3013;
 }
+
 /* Summary Card Styling */
 .summary-card {
   background-color: #1E2031; 
@@ -436,7 +464,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-bottom: auto; /* Pushes the subtotal to the bottom */
+  margin-bottom: auto;
 }
 
 .summary-card h4 {
@@ -453,7 +481,7 @@
 }
 
 .summary-card .seat-divider {
-  margin: 4px 0; /* Add space around the divider line inside the card */
+  margin: 4px 0; 
 }
 
 .sum-row {
@@ -473,9 +501,7 @@
   color: white;
 }
 
-/* ===============================
-   STEP 3: SUCCESS VIEW STYLES
-=============================== */
+/* Success View Styles */
 .success-view {
   flex: 1;
   display: flex;
@@ -488,8 +514,8 @@
 .success-icon {
   width: 56px;
   height: 56px;
-  background-color: #4ade80; /* Bright green checkmark circle */
-  color: #0b0e14; /* Dark checkmark to contrast */
+  background-color: #4ade80; 
+  color: #0b0e14; 
   border-radius: 50%;
   display: flex;
   justify-content: center;
@@ -512,86 +538,13 @@
 }
 
 .order-badge {
-  background-color: #242635; /* Dark gray pill */
+  background-color: #242635; 
   color: white;
   padding: 10px 24px;
   border-radius: 30px;
   font-size: 12px;
   font-weight: 700;
   margin-bottom: 40px;
-}
-
-.success-card {
-  background-color: #1E2031; /* Dark receipt card */
-  width: 100%;
-  max-width: 540px; /* Constrain width so it matches Figma */
-  border-radius: 16px;
-  padding: 24px;
-  text-align: left;
-}
-
-.succ-header {
-  display: flex;
-  gap: 16px;
-  align-items: center;
-  padding-bottom: 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05); /* Separator line */
-  margin-bottom: 16px;
-}
-
-.succ-header img {
-  width: 48px;
-  height: 64px;
-  border-radius: 8px;
-  object-fit: cover;
-}
-
-.succ-header-info h4 {
-  font-size: 16px;
-  font-weight: 700;
-  margin: 0 0 6px 0;
-  color: white;
-  text-transform: uppercase;
-}
-
-.succ-header-info p {
-  font-size: 12px;
-  color: #7b7e8b;
-  margin: 0;
-}
-
-.succ-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 0;
-}
-
-.succ-label {
-  font-size: 13px;
-  color: #7b7e8b;
-}
-
-.succ-value {
-  font-size: 13px;
-  font-weight: 700;
-  color: white;
-}
-
-.succ-row.total {
-  margin-top: 12px;
-  padding-top: 24px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05); /* Separator line above total */
-}
-
-.succ-row.total .succ-label {
-  text-transform: uppercase;
-}
-
-.succ-value-large {
-  font-size: 20px;
-  font-weight: 700;
-  color: white;
 }
 
 .success-actions {
@@ -611,12 +564,12 @@
 }
 
 .btn-primary {
-  background-color: #ec3013; /* Orange */
+  background-color: #ec3013; 
   color: white;
 }
 
 .btn-secondary {
-  background-color: #242635; /* Dark gray */
+  background-color: #242635; 
   color: white;
 }
 

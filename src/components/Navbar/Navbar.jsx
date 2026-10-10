@@ -1,27 +1,24 @@
-import { Link } from 'react-router-dom';
-import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import AuthModal from '../AuthModal/AuthModal';
+import { logoutUser, searchMovies } from '../../api'; // Added searchMovies
 import './Navbar.css';
 
-// Mock data to match the Figma search results
-const MOCK_MOVIES = [
-  { id: 1, title: 'The Odyssey', type: 'Film', age: '12+', duration: '134 min', price: 'from ₾16', status: 'available', poster: 'https://images.unsplash.com/photo-1626814026160-2237a95fc5a0?q=80&w=100&auto=format&fit=crop' },
-  { id: 2, title: 'The Father', type: 'Film', age: '12+', duration: '134 min', price: 'from ₾12', status: 'available', poster: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?q=80&w=100&auto=format&fit=crop' },
-  { id: 3, title: 'The Batman', type: 'Film', age: '12+', duration: '134 min', price: 'Coming Soon', status: 'coming_soon', poster: 'https://images.unsplash.com/photo-1509347528160-9a9e33742cdb?q=80&w=100&auto=format&fit=crop' },
-  { id: 4, title: 'The Brutalist', type: 'Film', age: '12+', duration: '134 min', price: 'from ₾16', status: 'available', poster: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?q=80&w=100&auto=format&fit=crop' }
-];
+export default function Navbar({ currentUser, onLogout }) {
+  // NOTE: If you are still using local state for currentUser and handleLogout 
+  // inside the Navbar instead of passing them as props from App.jsx, 
+  // you can keep your local states. This example assumes you are using props.
 
-export default function Navbar() {
-  const [isAuthorized, setIsAuthorized] = useState(true); 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isProfileComplete, setIsProfileComplete] = useState(true); 
-
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authView, setAuthView] = useState('login'); 
+  const navigate = useNavigate();
 
-  // --- NEW: Search Overlay States ---
+  // Search States
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   const openLogin = () => {
     setAuthView('login');
@@ -33,10 +30,41 @@ export default function Navbar() {
     setIsAuthModalOpen(true);
   };
 
-  // Filter movies based on search query
-  const filteredResults = MOCK_MOVIES.filter(movie => 
-    movie.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Debounce and Fetch Search Results
+  useEffect(() => {
+    // If the search is empty, clear results and don't fetch
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+
+    // Wait 300ms after the user stops typing before making the API call
+    const delayDebounceFn = setTimeout(async () => {
+      const { status, data } = await searchMovies(searchQuery);
+      if (status === 200 && data?.data) {
+        setSearchResults(data.data);
+      } else {
+        setSearchResults([]);
+      }
+      setIsSearching(false);
+    }, 300);
+
+    // Cleanup function clears the timeout if the user types again before 300ms is up
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
+
+  const handleResultClick = (slug) => {
+    setIsSearchOpen(false);
+    setSearchQuery('');
+    navigate(`/movie/${slug}`);
+  };
+
+  const displayName = currentUser?.username || currentUser?.fullName || 'User';
+  const displayEmail = currentUser?.email || '';
+  const avatarUrl = currentUser?.avatar || `https://ui-avatars.com/api/?name=${displayName}&background=8b5cf6&color=fff`;
 
   return (
     <>
@@ -52,7 +80,6 @@ export default function Navbar() {
 
         <div className="nav-right">
           
-          {/* --- UPDATED: Search Container --- */}
           <div className="search-container">
             <div className={`search-bar ${isSearchOpen ? 'active' : ''}`}>
               <span className="search-icon">🔍</span>
@@ -68,33 +95,40 @@ export default function Navbar() {
               )}
             </div>
 
-            {/* Search Overlay Dropdown */}
             {isSearchOpen && (
               <>
                 <div className="search-backdrop" onClick={() => setIsSearchOpen(false)}></div>
                 <div className="search-dropdown">
                   
                   {searchQuery === '' ? (
-                    // 1. Initial Prompt State
                     <div className="search-prompt">
                       <div className="prompt-icon">🍿</div>
                       <h4>What do you want to watch?</h4>
                       <p>Search by title, director or cast</p>
-                      <button className="btn-browse" onClick={() => setIsSearchOpen(false)}>Browse all sessions</button>
+                      <button className="btn-browse" onClick={() => { setIsSearchOpen(false); navigate('/sessions'); }}>
+                        Browse all sessions
+                      </button>
                     </div>
-                  ) : filteredResults.length > 0 ? (
-                    // 2. Results State
+                  ) : isSearching ? (
+                    <div className="search-prompt">
+                      <p>Searching...</p>
+                    </div>
+                  ) : searchResults.length > 0 ? (
                     <div className="search-results">
                       <div className="results-header">
                         <span>FILMS & EVENTS</span>
-                        <span>{filteredResults.length} results</span>
+                        <span>{searchResults.length} results</span>
                       </div>
                       <div className="results-list">
-                        {filteredResults.map(movie => (
-                          <div key={movie.id} className="result-item">
-                            <img src={movie.poster} alt={movie.title} className="result-poster" />
+                        {searchResults.map(movie => (
+                          <div 
+                            key={movie.id} 
+                            className="result-item" 
+                            onClick={() => handleResultClick(movie.slug)}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <img src={movie.posterUrl} alt={movie.title} className="result-poster" />
                             <div className="result-info">
-                              {/* Simple highlighting simulation */}
                               <h4>
                                 {movie.title.toLowerCase().startsWith(searchQuery.toLowerCase()) ? (
                                   <><strong>{movie.title.slice(0, searchQuery.length)}</strong>{movie.title.slice(searchQuery.length)}</>
@@ -102,22 +136,25 @@ export default function Navbar() {
                                   movie.title
                                 )}
                               </h4>
-                              <p>{movie.type} · {movie.age} · {movie.duration}</p>
+                              <p style={{ textTransform: 'capitalize' }}>
+                                {movie.kind} · {movie.ageRating?.code} · {movie.runtimeMinutes} min
+                              </p>
                             </div>
-                            <div className={`result-price ${movie.status === 'coming_soon' ? 'coming-soon' : ''}`}>
-                              {movie.price}
+                            <div className={`result-price ${movie.isComingSoon ? 'coming-soon' : ''}`}>
+                              {movie.isComingSoon ? 'Coming Soon' : `from ₾${movie.fromPrice}`}
                             </div>
                           </div>
                         ))}
                       </div>
                     </div>
                   ) : (
-                    // 3. No Results State
                     <div className="search-prompt">
                       <div className="prompt-icon">🔍</div>
                       <h4>No results for "{searchQuery}"</h4>
                       <p>Check the spelling or try another film or live event.</p>
-                      <button className="btn-browse" onClick={() => setIsSearchOpen(false)}>Browse all sessions</button>
+                      <button className="btn-browse" onClick={() => { setIsSearchOpen(false); navigate('/sessions'); }}>
+                        Browse all sessions
+                      </button>
                     </div>
                   )}
                   
@@ -126,7 +163,7 @@ export default function Navbar() {
             )}
           </div>
 
-          {!isAuthorized ? (
+          {!currentUser ? (
             <div className="auth-buttons">
               <button className="btn-signup" onClick={openSignup}>Sign up</button>
               <button className="btn-login" onClick={openLogin}>Log in</button>
@@ -138,9 +175,9 @@ export default function Navbar() {
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               >
                 <div className="avatar">
-                  <img src="https://ui-avatars.com/api/?name=Mari&background=8b5cf6&color=fff" alt="Mari" />
+                  <img src={avatarUrl} alt={displayName} />
                 </div>
-                <span className="profile-name">Mari</span>
+                <span className="profile-name">{displayName}</span>
                 <span className="dropdown-icon">
                   <svg 
                     width="12" 
@@ -162,15 +199,15 @@ export default function Navbar() {
                 <div className="profile-dropdown">
                   <div className="dropdown-header">
                     <div className="avatar avatar-large">
-                      <img src="https://ui-avatars.com/api/?name=Mari&background=8b5cf6&color=fff" alt="Mari" />
+                      <img src={avatarUrl} alt={displayName} />
                     </div>
                     <div className="user-details">
-                      <p className="user-fullname">Mari Sanikidze</p>
-                      <p className="user-email">marisanikidze@gmail.com</p>
+                      <p className="user-fullname">{displayName}</p>
+                      <p className="user-email">{displayEmail}</p>
                     </div>
                   </div>
 
-                  {isProfileComplete ? (
+                  {currentUser.profileComplete ? (
                     <div className="profile-status status-complete">
                       <p className="status-title">Profile Complete <span className="check-icon">✓</span></p>
                     </div>
@@ -182,15 +219,26 @@ export default function Navbar() {
                   )}
 
                   <div className="dropdown-links">
-                    <Link to="/profile" className="dropdown-item">
+                    <Link 
+                      to="/profile" 
+                      state={{ activeTab: 'personal' }} 
+                      className="dropdown-item"
+                      onClick={() => setIsDropdownOpen(false)}
+                    >
                       <span className="dropdown-item-icon">👤</span> My Profile
                     </Link>
-                    <Link to="/tickets" className="dropdown-item">
+                    
+                    <Link 
+                      to="/profile" 
+                      state={{ activeTab: 'tickets' }} 
+                      className="dropdown-item"
+                      onClick={() => setIsDropdownOpen(false)}
+                    >
                       <span className="dropdown-item-icon">🎟</span> My Tickets
                     </Link>
                   </div>
                   
-                  <button className="dropdown-item logout-btn">
+                  <button className="dropdown-item logout-btn" onClick={onLogout}>
                     <span className="dropdown-item-icon">🚪</span> Log out
                   </button>
                 </div>

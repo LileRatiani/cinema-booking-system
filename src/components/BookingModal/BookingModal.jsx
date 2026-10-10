@@ -1,18 +1,31 @@
-import { useState, useEffect } from 'react';
-import { fetchSessionSeats, holdSessionSeats, createOrder } from '../../api';
+import { useState, useEffect, Fragment, useCallback } from 'react';
+import { fetchSessionSeats, holdSessionSeats, createOrder, fetchHold, releaseHold } from '../../api';
 import './BookingModal.css';
 
-export default function BookingModal({ session, onClose }) {
-  const [step, setStep] = useState(1); // 1: Seats, 2: Checkout, 3: Success
-  const [hallLayout, setHallLayout] = useState({ rows: [] });
-  const [selectedSeats, setSelectedSeats] = useState([]); // { id, number, type: 'Adult' | 'Child' | 'Student', price }
-  const [holdToken, setHoldToken] = useState(null);
-  const [holdTimer, setHoldTimer] = useState(null);
+// Accept filterOptions as a prop from MovieDetails
+export default function BookingModal({ session, onClose, filterOptions }) {
+  const [step, setStep] = useState(1);
+  const [hallLayout, setHallLayout] = useState([]); 
+  const [selectedSeats, setSelectedSeats] = useState([]);
   
-  // Checkout Form State
+  // 1. Read configuration dynamically from the global state
+  const ticketTypes = filterOptions?.ticketTypes || [
+    { slug: 'adult', name: 'Adult', ratio: 1 },
+    { slug: 'student', name: 'Student', ratio: 0.75 },
+    { slug: 'child', name: 'Child', ratio: 0.6 }
+  ];
+  const MAX_SEATS = filterOptions?.maxSeatsPerOrder || 3;
+  // Hold timer is handled by the server's expiresAt, but it's good practice to extract this
+  const HOLD_TIMER_MINUTES = filterOptions?.holdMinutes || 8; 
+  
+  const [holdToken, setHoldToken] = useState(null);
+  const [expiresAt, setExpiresAt] = useState(null);
+  const [timeRemaining, setTimeRemaining] = useState(null);
+  const [isLoadingSeats, setIsLoadingSeats] = useState(true);
+  
   const [form, setForm] = useState({
-    fullName: 'Meri Sanikidze',
-    email: 'merisanikidze@gmail.com',
+    fullName: 'John Doe',
+    email: 'john.doe@example.com',
     mobile: '555123456',
     cardNumber: '',
     expiry: '',
@@ -22,97 +35,154 @@ export default function BookingModal({ session, onClose }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderResponse, setOrderResponse] = useState(null);
 
-  // STEP 1: Fetch live seat layout when modal opens (GET /sessions/{id}/seats)
+  const loadSeats = useCallback(async () => {
+    setIsLoadingSeats(true);
+    const data = await fetchSessionSeats(session.id);
+    setHallLayout(data?.sections || []);
+    setIsLoadingSeats(false);
+  }, [session.id]);
+
+  // Initial Data Fetch & Hold Recovery
   useEffect(() => {
-    const loadSeats = async () => {
-      const data = await fetchSessionSeats(session.id);
-      if (data) {
-        setHallLayout(data);
+    loadSeats();
+
+    // Check for an active hold for this session on reload
+    const recoverHold = async () => {
+      const savedHoldId = sessionStorage.getItem(`activeHold_${session.id}`);
+      if (savedHoldId) {
+        const { status, data } = await fetchHold(savedHoldId);
+        if (status === 200 && data?.data?.isLive) {
+          const holdInfo = data.data;
+          
+          setHoldToken(holdInfo.holdId);
+          setExpiresAt(holdInfo.expiresAt);
+          
+          // Reconstruct the selected seats array from the API response
+          const restoredSeats = holdInfo.seats.map(s => ({
+            id: s.seatId,
+            code: s.code,
+            type: s.ticketType?.slug || 'adult',
+            price: s.price
+          }));
+          
+          setSelectedSeats(restoredSeats);
+          setStep(2);
+        } else {
+          // Clean up if it's expired or 404
+          sessionStorage.removeItem(`activeHold_${session.id}`);
+        }
       }
     };
-    if (session?.id) {
-      loadSeats();
-    }
-  }, [session?.id]);
+    recoverHold();
+  }, [loadSeats, session.id]);
 
-  // Timer Logic for Holds
+  // Expiration Timer
   useEffect(() => {
-    let interval;
-    if (step === 2 && holdTimer > 0) {
-      interval = setInterval(() => {
-        setHoldTimer((prev) => prev - 1);
-      }, 1000);
-    } else if (holdTimer === 0 && step === 2) {
-      alert("Your hold time expired. Please re-select your seats.");
-      setStep(1);
-      setSelectedSeats([]);
-      setHoldTimer(null);
-      setHoldToken(null);
-    }
+    if (step !== 2 || !expiresAt) return;
+
+    const tick = () => {
+      const now = new Date();
+      const expiry = new Date(expiresAt);
+      const diffSeconds = Math.floor((expiry - now) / 1000);
+
+      if (diffSeconds <= 0) {
+        alert("Your hold time expired. Please re-select your seats.");
+        setStep(1);
+        setSelectedSeats([]);
+        setExpiresAt(null);
+        setHoldToken(null);
+        sessionStorage.removeItem(`activeHold_${session.id}`);
+        loadSeats(); 
+      } else {
+        setTimeRemaining(diffSeconds);
+      }
+    };
+
+    tick(); 
+    const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, [step, holdTimer]);
+  }, [step, expiresAt, loadSeats, session.id]);
+
+  // Handle Modal Close (Release seats if abandoned)
+  const handleClose = () => {
+    if (holdToken && step < 3) {
+      releaseHold(holdToken);
+      sessionStorage.removeItem(`activeHold_${session.id}`);
+    }
+    onClose();
+  };
 
   const toggleSeat = (seat) => {
-    const seatId = seat.id;
-    const isSelected = selectedSeats.find(s => s.id === seatId);
+    const isSelected = selectedSeats.find(s => s.id === seat.id);
     if (isSelected) {
-      setSelectedSeats(selectedSeats.filter(s => s.id !== seatId));
+      setSelectedSeats(selectedSeats.filter(s => s.id !== seat.id));
     } else {
-      if (selectedSeats.length >= 3) {
-        alert("Maximum 3 seats allowed per order.");
+      // 2. Use dynamic limit instead of hardcoded 3
+      if (selectedSeats.length >= MAX_SEATS) {
+        alert(`Maximum ${MAX_SEATS} seats allowed per order.`);
         return;
       }
       setSelectedSeats([...selectedSeats, { 
-        id: seatId, 
-        number: seat.number || seat.seatNumber, 
-        rowNumber: seat.rowNumber || seat.row,
-        type: 'Adult', 
-        price: session.price 
+        id: seat.id, 
+        code: seat.code, 
+        type: 'adult', 
       }]);
     }
   };
 
-  const updateTicketType = (seatId, type) => {
-    if (type === 'Child' && (session.ageRating === '16+' || session.ageRating === '18+')) {
-      alert(`Child tickets are not permitted for ${session.ageRating} titles.`);
-      return;
-    }
-    
-    let multiplier = 1;
-    if (type === 'Child') multiplier = 0.6;
-    if (type === 'Student') multiplier = 0.75;
-    
+  const updateTicketType = (seatId, typeSlug) => {
     setSelectedSeats(seats => seats.map(s => 
-      s.id === seatId ? { ...s, type, price: session.price * multiplier } : s
+      s.id === seatId ? { ...s, type: typeSlug } : s
     ));
   };
 
-  const subtotal = selectedSeats.reduce((sum, seat) => sum + seat.price, 0);
+  const subtotal = selectedSeats.reduce((sum, seat) => {
+    const tType = ticketTypes.find(t => t.slug === seat.type) || ticketTypes[0];
+    const ratio = tType.ratio ?? 1;
+    return sum + (session.price * ratio);
+  }, 0);
 
-  // STEP 2: Hold seats via POST /sessions/{id}/holds
+  // POST /sessions/{id}/holds
   const handleHoldSeats = async () => {
     if (selectedSeats.length === 0) return;
     
-    const seatIds = selectedSeats.map(s => s.id);
-    const response = await holdSessionSeats(session.id, seatIds);
+    const holdPayload = {
+      seats: selectedSeats.map(s => ({
+        seatId: s.id,
+        type: s.type 
+      }))
+    };
     
-    if (response && (response.holdToken || response.token)) {
-      setHoldToken(response.holdToken || response.token);
-      setHoldTimer(response.expiresIn || 480); // Default to 8 mins (480s)
+    const { status, data } = await holdSessionSeats(session.id, holdPayload);
+    
+    if (status === 201) {
+      const holdInfo = data.data || data;
+      setHoldToken(holdInfo.holdId);
+      setExpiresAt(holdInfo.expiresAt); 
+      sessionStorage.setItem(`activeHold_${session.id}`, holdInfo.holdId);
       setStep(2);
+    } else if (status === 401) {
+      alert("Please log in to reserve seats.");
+    } else if (status === 409) {
+      const contested = data.contested || [];
+      alert(`Someone just took these seats: ${contested.join(', ')}`);
+      setSelectedSeats(prev => prev.filter(s => !contested.includes(s.code)));
+      loadSeats();
+    } else if (status === 422) {
+      alert(data.message || "Booking rule validation failed.");
     } else {
-      alert("Failed to hold selected seats. They might have just been taken.");
+      alert("Failed to hold seats. Please try again.");
     }
   };
 
   const formatTime = (seconds) => {
-    if (seconds === null) return '';
+    if (seconds === null || seconds <= 0) return '00:00';
     const m = Math.floor(seconds / 60).toString().padStart(2, '0');
     const s = (seconds % 60).toString().padStart(2, '0');
     return `${m}:${s}`;
   };
 
-  // STEP 3: Create order via POST /orders
+  // POST /orders
   const handleCheckout = async () => {
     const errors = {};
     if (form.cardNumber.replace(/\s/g, '').length !== 16) errors.cardNumber = "Invalid card length";
@@ -127,17 +197,15 @@ export default function BookingModal({ session, onClose }) {
     setIsSubmitting(true);
     
     const orderPayload = {
-      holdToken: holdToken,
-      sessionId: session.id,
-      seats: selectedSeats.map(s => ({ seatId: s.id, ticketType: s.type })),
+      token: holdToken, 
       customer: {
-        fullName: form.fullName,
+        name: form.fullName,
         email: form.email,
-        mobile: form.mobile
+        phone: form.mobile
       },
       payment: {
-        cardNumber: form.cardNumber,
-        expiry: form.expiry,
+        number: form.cardNumber,
+        expiration: form.expiry,
         cvv: form.cvv
       }
     };
@@ -146,27 +214,31 @@ export default function BookingModal({ session, onClose }) {
     setIsSubmitting(false);
 
     if (result) {
+      sessionStorage.removeItem(`activeHold_${session.id}`); // Clean up storage
       setOrderResponse(result);
-      setStep(3); // Success
+      setStep(3);
     } else {
       alert("Order placement failed. Please check your payment details.");
     }
   };
 
+  const minAge = parseInt(String(session.ageRating).replace(/\D/g, ''), 10) || 0;
+  const allowChildTickets = minAge < 16;
+
   return (
-    <div className="book-modal-overlay" onClick={onClose}>
+    <div className="book-modal-overlay" onClick={handleClose}>
       <div className="book-modal-content" onClick={e => e.stopPropagation()}>
         
         {step < 3 && (
           <div className="book-header">
             <div>
               <h2 className="book-title">{session.movieTitle}</h2>
-              <p className="book-subtitle">{session.venue} · {session.hall} · {session.time} · {session.format} · {session.lang}</p>
+              <p className="book-subtitle">{session.venue} · {session.hall} · {session.time}</p>
             </div>
             {step === 2 && (
               <div className="timer-box">
                 <span className="timer-label">SEATS HELD</span>
-                <span className="timer-value">{formatTime(holdTimer)}</span>
+                <span className="timer-value">{formatTime(timeRemaining)}</span>
               </div>
             )}
           </div>
@@ -174,7 +246,13 @@ export default function BookingModal({ session, onClose }) {
 
         {step < 3 && (
           <div className="step-indicator">
-            <div className={`step-item ${step === 1 ? 'active' : ''}`}>SEATS</div>
+            <div 
+              className={`step-item ${step === 1 ? 'active' : ''}`}
+              onClick={() => step === 2 && setStep(1)} 
+              style={{ cursor: step === 2 ? 'pointer' : 'default' }}
+            >
+              SEATS
+            </div>
             <div className={`step-item ${step === 2 ? 'active' : ''}`}>CHECKOUT</div>
           </div>
         )}
@@ -185,69 +263,98 @@ export default function BookingModal({ session, onClose }) {
             <>
               <div className="hall-map-section">
                 <div className="screen-indicator">SCREEN</div>
-                <div className="stalls-label">STALLS</div>
                 
-                <div className="seats-grid">
-                  {hallLayout.rows?.map(row => (
-                    <div key={row.id || row.rowNumber} className="seat-row">
-                      <span className="row-label">{row.id || row.rowNumber}</span>
-                      {row.seats?.map(seat => {
-                        const isSelected = selectedSeats.some(s => s.id === seat.id);
-                        const isTaken = seat.isBooked || seat.status === 'sold' || seat.status === 'booked';
-                        const seatNum = seat.number || seat.seatNumber;
-                        return (
-                          <button
-                            key={seat.id}
-                            className={`seat-btn ${isTaken ? 'sold' : 'available'} ${isSelected ? 'selected' : ''} ${seatNum === 5 ? 'aisle-left' : ''}`}
-                            disabled={isTaken}
-                            onClick={() => toggleSeat(seat)}
-                          >
-                            {seatNum}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
+                {isLoadingSeats ? (
+                   <p className="loading-text">Loading hall layout...</p>
+                ) : (
+                  <div className="seats-grid">
+                    {hallLayout.map((section, secIndex) => (
+                      <div key={secIndex} className="hall-section-group">
+                        <div className="stalls-label">{section.name.toUpperCase()}</div>
+                        
+                        {section.rows.map((row) => (
+                          <div key={row.label} className="seat-row">
+                            <span className="row-label">{row.label}</span>
+                            
+                            {row.seats.map(seat => {
+                              const isSelected = selectedSeats.some(s => s.id === seat.id);
+                              
+                              return (
+                                <Fragment key={seat.id || `gap-${seat.code}`}>
+                                  {seat.state === 'unavailable' ? (
+                                    <span className="seat-unavailable"></span>
+                                  ) : (
+                                    <button
+                                      className={`seat-btn ${seat.state !== 'available' && !seat.isMine ? seat.state : 'available'} ${isSelected ? 'selected' : ''}`}
+                                      disabled={seat.state !== 'available'}
+                                      onClick={() => toggleSeat(seat)}
+                                    >
+                                      {seat.label}
+                                    </button>
+                                  )}
+                                  
+                                  {seat.aisleAfter && (
+                                    <span className="aisle-spacer"></span>
+                                  )}
+                                </Fragment>
+                              );
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                )}
                 
-                <div className="seat-legend">
+                <div className="seat-legend" style={{ marginTop: '20px' }}>
                   <span><div className="legend-box available"></div> Available</span>
                   <span><div className="legend-box selected"></div> Selected</span>
+                  <span><div className="legend-box held" style={{ backgroundColor: '#ff9800' }}></div> Held</span>
                   <span><div className="legend-box sold"></div> Sold</span>
                 </div>
               </div>
 
               <div className="ticket-types-section">
-                <h3>Your seats · Max 3</h3>
+                {/* 3. Use dynamic limit in UI elements */}
+                <h3>Your seats · Max {MAX_SEATS}</h3>
                 {selectedSeats.length === 0 ? (
-                  <p className="empty-seats">Pick up to 3 seats from the map. Each seat can carry its own ticket type.</p>
+                  <p className="empty-seats">Pick up to {MAX_SEATS} seats from the map. Each seat can carry its own ticket type.</p>
                 ) : (
                   <div className="selected-seats-list">
-                    {selectedSeats.map(seat => (
-                      <div key={seat.id} className="seat-ticket-row">
-                        <div className="seat-header">
-                          <span className="seat-id">Seat &nbsp;&nbsp;<strong>{seat.rowNumber}{seat.number}</strong></span>
-                          <div className="seat-price-remove">
-                            <span className="seat-price-top">₾{seat.price.toFixed(0)}</span>
-                            <button className="btn-remove-seat" onClick={() => toggleSeat(seat)}>✕</button>
+                    {selectedSeats.map(seat => {
+                      const tType = ticketTypes.find(t => t.slug === seat.type) || ticketTypes[0];
+                      const currentPrice = session.price * (tType.ratio ?? 1);
+                      
+                      return (
+                        <div key={seat.id} className="seat-ticket-row">
+                          <div className="seat-header">
+                            <span className="seat-id">Seat <strong>{seat.code}</strong></span>
+                            <div className="seat-price-remove">
+                              <span className="seat-price-top">₾{currentPrice.toFixed(0)}</span>
+                              <button className="btn-remove-seat" onClick={() => toggleSeat(seat)}>✕</button>
+                            </div>
+                          </div>
+                          
+                          <div className="seat-divider"></div>
+                          
+                          <div className="ticket-toggles">
+                            {ticketTypes.map(type => {
+                              if (type.slug === 'child' && !allowChildTickets) return null;
+                              
+                              return (
+                                <button 
+                                  key={type.slug}
+                                  className={`type-btn ${seat.type === type.slug ? 'active' : ''}`}
+                                  onClick={() => updateTicketType(seat.id, type.slug)}
+                                >
+                                  {type.name} {type.ratio < 1 ? `${type.ratio * 100}%` : '100%'}
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
-                        
-                        <div className="seat-divider"></div>
-                        
-                        <div className="ticket-toggles">
-                          {['Child', 'Student', 'Adult'].map(type => (
-                            <button 
-                              key={type}
-                              className={`type-btn ${seat.type === type ? 'active' : ''}`}
-                              onClick={() => updateTicketType(seat.id, type)}
-                            >
-                              {type} {type === 'Child' ? '60%' : type === 'Student' ? '75%' : '100%'}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
                 
@@ -335,17 +442,18 @@ export default function BookingModal({ session, onClose }) {
                   
                   <div className="sum-row">
                     <span className="sum-label">Seats</span>
-                    <span className="sum-value">{selectedSeats.map(s => `${s.rowNumber || ''}${s.number}`).join(', ')}</span>
+                    <span className="sum-value">{selectedSeats.map(s => s.code).join(', ')}</span>
                   </div>
                   <div className="sum-row">
                     <span className="sum-label">Tickets</span>
                     <span className="sum-value">
                       {Object.entries(
                         selectedSeats.reduce((acc, seat) => {
-                          acc[seat.type] = (acc[seat.type] || 0) + 1;
+                          const name = ticketTypes.find(t => t.slug === seat.type)?.name || 'Adult';
+                          acc[name] = (acc[name] || 0) + 1;
                           return acc;
                         }, {})
-                      ).map(([type, count]) => `${count} x ${type}`).join(', ')}
+                      ).map(([name, count]) => `${count} x ${name}`).join(', ')}
                     </span>
                   </div>
                 </div>
@@ -374,40 +482,8 @@ export default function BookingModal({ session, onClose }) {
               
               <div className="order-badge">ORDER #{orderResponse?.id || orderResponse?.orderNumber || 'KX-48291'}</div>
               
-              <div className="success-card">
-                <div className="succ-header">
-                  <div className="succ-header-info">
-                    <h4>{session.movieTitle}</h4>
-                    <p>{session.venue} · {session.hall} · {session.time}</p>
-                  </div>
-                </div>
-                
-                <div className="succ-row">
-                  <span className="succ-label">Seats</span>
-                  <span className="succ-value">{selectedSeats.map(s => `${s.rowNumber || ''}${s.number}`).join(', ')}</span>
-                </div>
-                
-                <div className="succ-row">
-                  <span className="succ-label">Tickets</span>
-                  <span className="succ-value">
-                    {Object.entries(
-                      selectedSeats.reduce((acc, seat) => {
-                        acc[seat.type] = (acc[seat.type] || 0) + 1;
-                        return acc;
-                      }, {})
-                    ).map(([type, count]) => `${count} x ${type}`).join(', ')}
-                  </span>
-                </div>
-                
-                <div className="succ-row total">
-                  <span className="succ-label">TOTAL PAID</span>
-                  <span className="succ-value-large">₾{subtotal.toFixed(0)}</span>
-                </div>
-              </div>
-              
-              <div className="success-actions">
-                <button className="btn-primary" onClick={onClose}>View my tickets</button>
-                <button className="btn-secondary" onClick={onClose}>Back to home</button>
+              <div className="success-actions" style={{marginTop: "30px"}}>
+                <button className="btn-primary" onClick={handleClose}>View my tickets</button>
               </div>
             </div>
           )}

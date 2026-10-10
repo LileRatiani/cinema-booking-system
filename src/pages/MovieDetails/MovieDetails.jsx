@@ -1,46 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { fetchMovieDetails, notifyMovie } from '../../api'; // Import notifyMovie here
 import BookingModal from '../../components/BookingModal/BookingModal';
 import './MovieDetails.css';
 
-// Mock Data for the page
-const MOVIE_DATA = {
-  id: 1,
-  title: 'THE ODYSSEY',
-  description: 'While her husband maps a coast he will never sail, she keeps a second atlas of the places he leaves out, and it becomes the more accurate of the two.',
-  duration: '109 minutes',
-  format: 'PANORAMA',
-  ageRating: '16+',
-  releaseDate: '4 September 2026',
-  director: 'Elene Kapanadze',
-  cast: 'David Merabishvili, Ana Lomidze, Giorgi Tskhadadze, Mariam Beridze',
-  formats: 'MAX, MOTION, ATMOS',
-  fromPrice: '16',
-  backdrop: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=1920&auto=format&fit=crop',
-  poster: 'https://images.unsplash.com/photo-1626814026160-2237a95fc5a0?q=80&w=400&auto=format&fit=crop'
-};
-
-const MOCK_SESSIONS = {
-  'Galleria Tbilisi': {
-    'Hall A': [
-      { id: 's1', time: '12:00', price: 16, format: 'MAX', lang: 'ENG', availableSeats: 45 },
-      { id: 's2', time: '12:00', price: 16, format: 'MAX', lang: 'ENG', availableSeats: 45 } 
-    ],
-    'Hall B': [
-      { id: 's3', time: '12:00', price: 16, format: 'MAX', lang: 'ENG', availableSeats: 45 },
-      { id: 's4', time: '12:00', price: 16, format: 'MAX', lang: 'ENG', availableSeats: 45 }
-    ]
-  },
-  'Vake Park': {
-    'Hall A': [
-      { id: 's5', time: '12:00', price: 16, format: 'MAX', lang: 'ENG', availableSeats: 45 },
-      { id: 's6', time: '12:00', price: 16, format: 'MAX', lang: 'ENG', availableSeats: 45 }
-    ]
-  }
-};
-
 const generateDates = () => {
   const dates = [];
-  const today = new Date("2026-10-08T00:00:00+04:00");
+  const today = new Date("2026-10-10T00:00:00+04:00"); 
   for (let i = 0; i < 7; i++) {
     const d = new Date(today);
     d.setDate(today.getDate() + i);
@@ -53,34 +19,104 @@ const generateDates = () => {
   return dates;
 };
 
+const groupSessionsByHall = (sessionsArray) => {
+  const halls = {};
+  sessionsArray.forEach(session => {
+    const hallName = session.hall?.name || 'Main';
+    if (!halls[hallName]) halls[hallName] = [];
+    halls[hallName].push(session);
+  });
+  return halls;
+};
+
 export default function MovieDetails() {
+  const { id } = useParams();
+  const navigate = useNavigate();
   const dates = useMemo(() => generateDates(), []);
+
+  const [movie, setMovie] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isNotifying, setIsNotifying] = useState(false); // New state for API call
   const [selectedDate, setSelectedDate] = useState(dates[0].full);
   const [selectedSession, setSelectedSession] = useState(null);
+
+  useEffect(() => {
+    const loadMovieDetails = async () => {
+      setIsLoading(true);
+      const data = await fetchMovieDetails(id, { date: selectedDate });
+      
+      // Handle standard API response wrappers (e.g. data.data vs data)
+      const movieData = data?.data || data;
+      setMovie(movieData);
+      setIsLoading(false);
+    };
+
+    if (id) {
+      loadMovieDetails();
+    }
+  }, [id, selectedDate]);
+
+  // Handle the Coming Soon subscription
+  const handleNotifyClick = async () => {
+    setIsNotifying(true);
+    const { status } = await notifyMovie(id);
+
+    if (status === 201) {
+      // Update local state to show the success checkmark
+      setMovie(prev => ({ ...prev, isNotified: true }));
+    } else if (status === 401) {
+      alert("Please log in to receive notifications.");
+    }
+    
+    setIsNotifying(false);
+  };
+
+  const ageLimit = movie?.ageRating?.minAge || 0;
+  const rawAgeRating = movie?.ageRating?.code || '';
   
   const isAuthorized = true; 
   const userAge = 21; 
-  const isAgeRestricted = MOVIE_DATA.ageRating === '16+' && userAge < 16;
+  const isAgeRestricted = ageLimit > 0 && userAge < ageLimit;
 
-  const handleSessionClick = (session, venue, hall) => {
-    if (session.availableSeats === 0) return;
+  const handleSessionClick = (session, venueName, hallName) => {
+    if (session.isSoldOut || session.seatsLeft === 0) return;
     if (isAuthorized && isAgeRestricted) return; 
     
-    setSelectedSession({ ...session, venue, hall, movieTitle: MOVIE_DATA.title, ageRating: MOVIE_DATA.ageRating });
+    setSelectedSession({ 
+      ...session, 
+      venue: venueName, 
+      hall: hallName, 
+      movieTitle: movie.title, 
+      ageRating: rawAgeRating
+    });
   };
+
+  if (isLoading) {
+    return <div style={{ color: 'white', padding: '40px' }}>Loading movie details...</div>;
+  }
+
+  if (!movie || !movie.title) {
+    return (
+      <div style={{ color: 'white', padding: '40px' }}>
+        <h2>Movie not found.</h2>
+        <p>Ensure your backend API is running and the movie ID ({id}) is correct.</p>
+        <button onClick={() => navigate(-1)} style={{ padding: '8px 16px', marginTop: '20px', cursor: 'pointer' }}>Go Back</button>
+      </div>
+    );
+  }
 
   return (
     <div className="movie-page">
-      <div className="movie-hero" style={{ backgroundImage: `linear-gradient(to right, #0b0e14 20%, transparent 60%), linear-gradient(to top, #0b0e14 0%, transparent 40%), url(${MOVIE_DATA.backdrop})` }}>
+      
+      <div className="movie-hero" style={{ backgroundImage: `linear-gradient(to right, #0b0e14 20%, transparent 60%), linear-gradient(to top, #0b0e14 0%, transparent 40%), url(${movie.backdropUrl})` }}>
         <div className="hero-content">
-          <img src={MOVIE_DATA.poster} alt={MOVIE_DATA.title} className="hero-poster" />
+          <img src={movie.posterUrl} alt={movie.title} className="hero-poster" />
           <div className="hero-info">
-            <h1 className="hero-title">{MOVIE_DATA.title}</h1>
-            <p className="hero-desc">{MOVIE_DATA.description}</p>
+            <h1 className="hero-title">{movie.title}</h1>
+            <p className="hero-desc">{movie.synopsis || "No synopsis available."}</p>
             <div className="hero-tags">
-              <span className="age-tag">{MOVIE_DATA.ageRating}</span>
-              <span className="tag-pill">⏱ {MOVIE_DATA.duration}</span>
-              <span className="tag-pill">{MOVIE_DATA.format}</span>
+              <span className="age-tag" title={movie.ageRating?.description}>{rawAgeRating}</span>
+              <span className="tag-pill">⏱ {movie.runtimeMinutes} min</span>
             </div>
           </div>
         </div>
@@ -88,65 +124,109 @@ export default function MovieDetails() {
 
       <div className="movie-body">
         <div className="sessions-container">
-          <h2 className="section-title">Sessions</h2>
           
-          <div className="date-selector">
-            {dates.map(d => (
+          {movie.isComingSoon ? (
+            <div className="coming-soon-block" style={{ padding: '40px 0' }}>
+              <h2 className="section-title" style={{ marginBottom: '16px' }}>Coming Soon</h2>
+              <p style={{ color: '#888', marginBottom: '24px', fontSize: '18px' }}>
+                This movie is not yet in cinemas. Get an email when tickets go on sale.
+              </p>
+              
               <button 
-                key={d.full}
-                className={`date-btn ${selectedDate === d.full ? 'active' : ''}`}
-                onClick={() => setSelectedDate(d.full)}
+                onClick={handleNotifyClick}
+                disabled={movie.isNotified || isNotifying}
+                style={{
+                  padding: '12px 32px',
+                  backgroundColor: movie.isNotified ? '#10b981' : '#8b5cf6', // Green if subscribed, purple if not
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  cursor: movie.isNotified ? 'default' : 'pointer',
+                  transition: 'background-color 0.2s'
+                }}
               >
-                <span className="day-name">{d.dayName}</span>
-                <span className="day-num">{d.dayNum}</span>
+                {movie.isNotified ? '✓ Subscribed' : (isNotifying ? 'Subscribing...' : 'Notify Me')}
               </button>
-            ))}
-          </div>
+            </div>
+          ) : (
+            <>
+              <h2 className="section-title">Sessions</h2>
+              <div className="date-selector">
+                {dates.map(d => {
+                  const isAvailable = movie.availableDates?.includes(d.full);
+                  return (
+                    <button 
+                      key={d.full}
+                      className={`date-btn ${selectedDate === d.full ? 'active' : ''}`}
+                      onClick={() => setSelectedDate(d.full)}
+                      disabled={!isAvailable}
+                      style={{ opacity: isAvailable ? 1 : 0.3, cursor: isAvailable ? 'pointer' : 'not-allowed' }}
+                    >
+                      <span className="day-name">{d.dayName}</span>
+                      <span className="day-num">{d.dayNum}</span>
+                    </button>
+                  );
+                })}
+              </div>
 
-          <div className="venues-list">
-            {Object.entries(MOCK_SESSIONS).map(([venue, halls]) => (
-              <div key={venue} className="venue-group">
-                <h3 className="venue-name">{venue}</h3>
-                {/* This is the container that puts the Hall cards side-by-side */}
-                <div className="halls-flex-grid">
-                  {Object.entries(halls).map(([hall, sessions]) => (
-                    <div key={hall} className="hall-card">
-                      <h4 className="hall-title">{hall}</h4>
-                      <div className="sessions-list">
-                        {sessions.map(session => (
-                          <button 
-                            key={session.id}
-                            className={`session-ticket ${session.availableSeats === 0 ? 'sold-out' : ''} ${isAuthorized && isAgeRestricted ? 'restricted' : ''}`}
-                            onClick={() => handleSessionClick(session, venue, hall)}
-                            disabled={session.availableSeats === 0 || (isAuthorized && isAgeRestricted)}
-                          >
-                            {/* Left side of the ticket */}
-                            <div className="ticket-left">
-                              <span className="sess-time">{session.time}</span>
-                              <div className="sess-tags">
-                                <span className="sess-tag">{session.lang}</span>
-                                <span className="sess-tag">{session.format}</span>
+              <div className="venues-list">
+                {!movie.venuesData || movie.venuesData.length === 0 ? (
+                  <p style={{ color: '#888', marginTop: '20px' }}>No sessions available for this date.</p>
+                ) : (
+                  movie.venuesData.map((venueGroup) => {
+                    const venueName = venueGroup.venue.name;
+                    const groupedHalls = groupSessionsByHall(venueGroup.sessions);
+
+                    return (
+                      <div key={venueGroup.venue.id} className="venue-group">
+                        <h3 className="venue-name">{venueName}</h3>
+                        <div className="halls-flex-grid">
+                          {Object.entries(groupedHalls).map(([hallName, sessions]) => (
+                            <div key={hallName} className="hall-card">
+                              <h4 className="hall-title">Hall {hallName}</h4>
+                              <div className="sessions-list">
+                                {sessions.map(session => {
+                                  const isSoldOut = session.isSoldOut || session.seatsLeft === 0;
+
+                                  return (
+                                    <button 
+                                      key={session.id}
+                                      className={`session-ticket ${isSoldOut ? 'sold-out' : ''} ${isAuthorized && isAgeRestricted ? 'restricted' : ''}`}
+                                      onClick={() => handleSessionClick(session, venueName, hallName)}
+                                      disabled={isSoldOut || (isAuthorized && isAgeRestricted)}
+                                    >
+                                      <div className="ticket-left">
+                                        <span className="sess-time">{session.time}</span>
+                                        <div className="sess-tags">
+                                          <span className="sess-tag">{session.language?.code}</span>
+                                          <span className="sess-tag">{session.format?.name}</span>
+                                        </div>
+                                      </div>
+                                      
+                                      <div className="ticket-divider"></div>
+                                      
+                                      <div className="ticket-right">
+                                        <span className="sess-price">₾{session.price}</span>
+                                        <span className="sess-seats">
+                                          🎟 {!isSoldOut ? `${session.seatsLeft} left` : 'Sold out'}
+                                        </span>
+                                      </div>
+                                    </button>
+                                  );
+                                })}
                               </div>
                             </div>
-                            
-                            <div className="ticket-divider"></div>
-                            
-                            {/* Right side of the ticket */}
-                            <div className="ticket-right">
-                              <span className="sess-price">₾{session.price}</span>
-                              <span className="sess-seats">
-                                🎟 {session.availableSeats > 0 ? `${session.availableSeats} left` : 'Sold out'}
-                              </span>
-                            </div>
-                          </button>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    );
+                  })
+                )}
               </div>
-            ))}
-          </div>
+            </>
+          )}
         </div>
 
         <aside className="details-sidebar">
@@ -154,33 +234,39 @@ export default function MovieDetails() {
           
           <div className="detail-item">
             <p className="detail-label">DIRECTOR</p>
-            <p className="detail-value">{MOVIE_DATA.director}</p>
+            <p className="detail-value">{movie.director}</p>
           </div>
           <div className="detail-item">
             <p className="detail-label">MAIN CAST</p>
-            <p className="detail-value">{MOVIE_DATA.cast}</p>
+            <p className="detail-value">{movie.cast}</p>
           </div>
           <div className="detail-item">
             <p className="detail-label">DURATION</p>
-            <p className="detail-value">{MOVIE_DATA.duration}</p>
+            <p className="detail-value">{movie.runtimeMinutes} minutes</p>
           </div>
           <div className="detail-item">
             <p className="detail-label">RELEASE DATE</p>
-            <p className="detail-value">{MOVIE_DATA.releaseDate}</p>
+            <p className="detail-value">{movie.releaseDate}</p>
           </div>
-          <div className="detail-item">
-            <p className="detail-label">FORMATS</p>
-            <p className="detail-value">{MOVIE_DATA.formats}</p>
-          </div>
+          
+          {/* Formats shouldn't crash if empty/undefined */}
+          {movie.formats && movie.formats.length > 0 && (
+            <div className="detail-item">
+              <p className="detail-label">FORMATS</p>
+              <p className="detail-value">{movie.formats.map(f => f.name).join(', ')}</p>
+            </div>
+          )}
           
           <div className="detail-item from-price-item">
             <p className="detail-label">FROM</p>
-            <p className="from-price">₾{MOVIE_DATA.fromPrice}</p>
+            <p className="from-price">₾{movie.fromPrice}</p>
           </div>
           
           <div className="rating-note">
             <p className="rating-label">RATING NOTE</p>
-            <p className="rating-desc">{MOVIE_DATA.ageRating} - Not recommended for under-{MOVIE_DATA.ageRating.replace('+', '')}s. Tickets require an account aged {MOVIE_DATA.ageRating.replace('+', '')} or over.</p>
+            <p className="rating-desc">
+              {movie.ageRating?.description || `Not recommended for under-${ageLimit}s.`}
+            </p>
           </div>
         </aside>
       </div>
@@ -191,6 +277,14 @@ export default function MovieDetails() {
           onClose={() => setSelectedSession(null)} 
         />
       )}
+
+      {selectedSession && (
+  <BookingModal 
+    session={selectedSession} 
+    onClose={() => setSelectedSession(null)} 
+    filterOptions={filterOptions} // <-- Pass this through!
+  />
+)}
     </div>
   );
 }

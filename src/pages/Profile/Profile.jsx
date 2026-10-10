@@ -1,178 +1,147 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { updateProfile, fetchOrders } from '../../api'; // Adjust path
 import './Profile.css';
+import { useLocation } from 'react-router-dom';
 
-// Mock data for tickets
-const mockUpcomingTickets = [
-  {
-    id: 1,
-    title: "THE ODYSSEY",
-    ageRating: "12+",
-    duration: "134 min",
-    poster: "https://images.unsplash.com/photo-1626814026160-2237a95fc5a0?q=80&w=400&auto=format&fit=crop",
-    dateStr: "Thu 8 Oct • 16:30",
-    venue: "Kutaisi Branch • Hall A",
-    format: "MAX • Original + Subtitles",
-    seats: ["B3 • Adult", "B4 • Adult", "B5 • Student"],
-    orderNum: "#KX-48291",
-    totalPaid: 32,
-    // Future date allowing refunds
-    startTime: new Date("2026-10-08T16:30:00+04:00") 
-  },
-  {
-    id: 2,
-    title: "DUNE: Part Three",
-    ageRating: "12+",
-    duration: "134 min",
-    poster: "https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=400&auto=format&fit=crop",
-    dateStr: "Tue 6 Oct • 20:00",
-    venue: "Galleria Tbilisi • Hall B",
-    format: "MAX • Original + Subtitles",
-    seats: ["D3 • Adult", "D4 • Adult"],
-    orderNum: "#KX-48292",
-    totalPaid: 32,
-    // Very close to current time (Oct 6, 2026, 7:18 PM), refund should be disabled
-    startTime: new Date("2026-10-06T20:00:00+04:00") 
-  }
-];
+export default function Profile({ currentUser, onProfileUpdate }) {
+  // Tabs
+  const location = useLocation();
 
-const mockPastTickets = [
-  {
-    id: 3,
-    title: "SPIDER-MAN",
-    ageRating: "12+",
-    duration: "148 min",
-    poster: "https://images.unsplash.com/photo-1635805737707-575885ab0820?q=80&w=400&auto=format&fit=crop",
-    dateStr: "Mon 14 Sep • 18:00",
-    venue: "Galleria Tbilisi • Hall B",
-    format: "Standard • Dubbed",
-    seats: ["A1 • Adult"],
-    orderNum: "#KX-11204",
-    totalPaid: 14,
-    startTime: new Date("2026-09-14T18:00:00+04:00")
-  }
-];
-
-export default function Profile() {
-  const [activeMainTab, setActiveMainTab] = useState('personal'); // 'personal' or 'tickets'
-  const [activeTicketTab, setActiveTicketTab] = useState('upcoming'); // 'upcoming' or 'past'
+  const [activeMainTab, setActiveMainTab] = useState('personal'); 
+  const [activeTicketTab, setActiveTicketTab] = useState('upcoming'); 
   
-  const [upcomingTickets, setUpcomingTickets] = useState(mockUpcomingTickets);
-
-  // Form States
-  const [fullName, setFullName] = useState('Meri Sanikidze');
-  const [email] = useState('merisanikidze@gmail.com'); // Read-only
-  const [mobile, setMobile] = useState('555123456');
-  const [dob, setDob] = useState('');
-  const [venue, setVenue] = useState('');
+  // Profile States
+  const [formData, setFormData] = useState({
+    fullName: '',
+    mobileNumber: '',
+    dateOfBirth: '',
+    preferredVenueId: ''
+  });
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(null);
+  const fileInputRef = useRef(null);
+  
   const [isSaving, setIsSaving] = useState(false);
+  const [serverErrors, setServerErrors] = useState({});
+  const [successMessage, setSuccessMessage] = useState('');
 
-  // Validation States
-  const [errors, setErrors] = useState({});
-  const [age, setAge] = useState(null);
-  const [isFormModified, setIsFormModified] = useState(false);
+  // Ticket States
+  const [orders, setOrders] = useState([]);
+  const [isTicketsLoading, setIsTicketsLoading] = useState(false);
 
   useEffect(() => {
-    validateForm();
-  }, [fullName, mobile, dob]);
-
-  const calculateAge = (dobString) => {
-    if (!dobString) return null;
-    const birthDate = new Date(dobString);
-    const today = new Date();
-    if (birthDate > today) return -1; 
-    let calcAge = today.getFullYear() - birthDate.getFullYear();
-    const m = today.getMonth() - birthDate.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-      calcAge--;
+    if (location.state?.activeTab) {
+      setActiveMainTab(location.state.activeTab);
     }
-    return calcAge;
+  }, [location.state]);
+  
+  // 1. Load User Data on mount
+  useEffect(() => {
+    if (currentUser) {
+      setFormData({
+        fullName: currentUser.fullName || '',
+        mobileNumber: currentUser.mobileNumber || '',
+        dateOfBirth: currentUser.dateOfBirth || '',
+        preferredVenueId: currentUser.preferredVenue?.id || ''
+      });
+      if (currentUser.avatar) setAvatarPreview(currentUser.avatar);
+    }
+  }, [currentUser]);
+
+  // 2. Load Tickets when switching tabs
+  useEffect(() => {
+    if (activeMainTab === 'tickets') {
+      const loadOrders = async () => {
+        setIsTicketsLoading(true);
+        const { status, data } = await fetchOrders(activeTicketTab);
+        if (status === 200 && data?.data) {
+          setOrders(data.data);
+        } else {
+          setOrders([]);
+        }
+        setIsTicketsLoading(false);
+      };
+      loadOrders();
+    }
+  }, [activeMainTab, activeTicketTab]);
+
+  // --- PROFILE HANDLERS ---
+  const handleProfileChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+    if (serverErrors[e.target.name]) {
+      setServerErrors({ ...serverErrors, [e.target.name]: null });
+    }
   };
 
-  const validateForm = () => {
-    const newErrors = {};
-    let currentAge = calculateAge(dob);
-    setAge(currentAge);
-
-    // Full Name Validation
-    if (!fullName) newErrors.fullName = "Name is required";
-    else if (fullName.length < 3) newErrors.fullName = "Name must be at least 3 characters";
-    else if (fullName.length > 50) newErrors.fullName = "Name must not exceed 50 characters";
-
-    // Mobile Validation
-    if (!mobile) {
-      newErrors.mobile = "Mobile number is required";
-    } else if (!mobile.startsWith('5')) {
-      newErrors.mobile = "Georgian mobile numbers must start with 5";
-    } else if (mobile.length !== 9) {
-      newErrors.mobile = "Mobile number must be exactly 9 digits";
-    } else if (!/^5\d{8}$/.test(mobile)) {
-      newErrors.mobile = "Please enter a valid Georgian mobile number (9 digits starting with 5)";
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setAvatarFile(file);
+      setAvatarPreview(URL.createObjectURL(file));
     }
-
-    // DOB Validation
-    if (!dob) {
-      newErrors.dob = "Date of birth is required";
-    } else if (currentAge === -1) {
-      newErrors.dob = "Please enter a valid date of birth";
-    } else if (currentAge < 12) {
-      newErrors.dob = "You must be at least 12 years old to create an account";
-    }
-
-    setErrors(newErrors);
   };
 
-  const handleSave = () => {
-    if (Object.keys(errors).length > 0) return;
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
     setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
-      setIsFormModified(false);
-    }, 1000);
+    setServerErrors({});
+    setSuccessMessage('');
+
+    const payload = new FormData();
+    payload.append('fullName', formData.fullName);
+    payload.append('mobileNumber', formData.mobileNumber);
+    payload.append('dateOfBirth', formData.dateOfBirth);
+    if (formData.preferredVenueId) payload.append('preferredVenueId', formData.preferredVenueId);
+    if (avatarFile) payload.append('avatar', avatarFile);
+
+    const { status, data } = await updateProfile(payload);
+
+    if (status === 200) {
+      setSuccessMessage('Profile updated successfully!');
+      if (onProfileUpdate) onProfileUpdate(data.data);
+    } else if (status === 422) {
+      setServerErrors(data.errors || {});
+    }
+    setIsSaving(false);
   };
 
-  const handleRefund = (id) => {
-    setUpcomingTickets(upcomingTickets.filter(t => t.id !== id));
-  };
-
-  const renderTicketCard = (ticket, isPast) => {
-    const now = new Date("2026-10-06T19:18:00+04:00"); // Simulated current time from context
-    const hoursUntilStart = (ticket.startTime - now) / (1000 * 60 * 60);
-    const canRefund = hoursUntilStart >= 2;
-
-    const refundDeadline = new Date(ticket.startTime);
-    refundDeadline.setHours(refundDeadline.getHours() - 2);
-    const deadlineStr = `${refundDeadline.getHours().toString().padStart(2, '0')}:${refundDeadline.getMinutes().toString().padStart(2, '0')}, ${refundDeadline.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`;
+  // --- TICKET RENDERER ---
+  const renderTicketCard = (order) => {
+    const { session, tickets } = order;
+    const movie = session.movie;
 
     return (
-      <div key={ticket.id} className="ticket-card">
-        <img src={ticket.poster} alt={ticket.title} className="ticket-poster" />
+      <div key={order.id} className="ticket-card">
+        <img src={movie.posterUrl} alt={movie.title} className="ticket-poster" />
         
         <div className="ticket-details">
           <div className="ticket-header">
-            <h3>{ticket.title}</h3>
-            <span className="ticket-age-tag">{ticket.ageRating}</span>
-            <span className="ticket-duration">{ticket.duration}</span>
+            <h3>{movie.title}</h3>
+            <span className="ticket-age-tag">{movie.ageRating?.code || 'NR'}</span>
+            <span className="ticket-duration">{movie.runtimeMinutes} min</span>
           </div>
           
           <div className="ticket-meta-grid">
             <div>
               <p className="meta-label">DATE</p>
-              <p className="meta-value">{ticket.dateStr}</p>
+              <p className="meta-value">{session.date} • {session.time}</p>
             </div>
             <div>
               <p className="meta-label">VENUE</p>
-              <p className="meta-value">{ticket.venue}</p>
+              <p className="meta-value">{session.venue.name} • Hall {session.hall.name}</p>
             </div>
             <div>
               <p className="meta-label">FORMAT</p>
-              <p className="meta-value">{ticket.format}</p>
+              <p className="meta-value">{session.format.name} • {session.language.name}</p>
             </div>
           </div>
           
           <div className="ticket-seats">
             <p className="meta-label">SEATS</p>
             <div className="seat-list">
-              {ticket.seats.map((seat, i) => <span key={i} className="seat-badge">{seat}</span>)}
+              {tickets.map((ticket, i) => (
+                <span key={i} className="seat-badge">{ticket.seatCode} • {ticket.ticketType.name}</span>
+              ))}
             </div>
           </div>
         </div>
@@ -180,24 +149,22 @@ export default function Profile() {
         <div className="ticket-actions">
           <div className="order-info">
             <p className="meta-label">ORDER</p>
-            <p className="order-number">{ticket.orderNum}</p>
+            <p className="order-number">{order.reference}</p>
           </div>
           <div className="price-info">
             <p className="meta-label">Total paid</p>
-            <p className="total-price">₾{ticket.totalPaid}</p>
+            <p className="total-price">₾{order.totalPrice}</p>
           </div>
-          {!isPast && (
+          
+          {activeTicketTab === 'upcoming' && (
             <div className="refund-section">
               <button 
-                className={`btn-refund ${!canRefund ? 'btn-disabled' : ''}`}
-                disabled={!canRefund}
-                onClick={() => handleRefund(ticket.id)}
+                className={`btn-refund ${!order.isRefundable ? 'btn-disabled' : ''}`}
+                disabled={!order.isRefundable}
+                title={!order.isRefundable ? "Refunds are unavailable within 2 hours of the session start time." : "Refund this order"}
               >
                 Refund
               </button>
-              <p className="refund-policy">
-                {canRefund ? `Refundable until ${deadlineStr}` : 'Refund window closed (less than 2 hours to start)'}
-              </p>
             </div>
           )}
         </div>
@@ -205,12 +172,22 @@ export default function Profile() {
     );
   };
 
+  if (!currentUser) return <div>Loading...</div>;
+
+  const getError = (field) => serverErrors[field] ? serverErrors[field][0] : null;
+
   return (
     <div className="profile-page">
       <div className="profile-container">
+        
+        {!currentUser.profileComplete && (
+          <div className="profile-warning-banner" style={{ backgroundColor: '#fef08a', color: '#854d0e', padding: '12px', marginBottom: '20px', borderRadius: '4px' }}>
+            Profile incomplete. Please complete your profile to enable booking.
+          </div>
+        )}
+
         <h1 className="page-title">My Profile</h1>
         
-        {/* Main Tabs */}
         <div className="main-tabs">
           <button 
             className={`tab-btn ${activeMainTab === 'personal' ? 'active' : ''}`}
@@ -222,27 +199,46 @@ export default function Profile() {
             className={`tab-btn ${activeMainTab === 'tickets' ? 'active' : ''}`}
             onClick={() => setActiveMainTab('tickets')}
           >
-            My Tickets <span className="ticket-count">{upcomingTickets.length}</span>
+            My Tickets
           </button>
         </div>
 
-        {/* Tab Content: Personal Information */}
         {activeMainTab === 'personal' && (
-          <div className="tab-content personal-form">
+          <form className="tab-content personal-form" onSubmit={handleSaveProfile}>
+            
+            <div className="form-group avatar-group" style={{ marginBottom: '20px' }}>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleFileChange} 
+                accept=".jpg,.jpeg,.png,.webp" 
+                style={{ display: 'none' }} 
+              />
+              <div 
+                className="avatar-preview" 
+                onClick={() => fileInputRef.current?.click()}
+                style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: '#4c1d95', cursor: 'pointer', overflow: 'hidden' }}
+              >
+                 {avatarPreview ? <img src={avatarPreview} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ color: 'white', display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>Upload</span>}
+              </div>
+              {getError('avatar') && <span className="error-text" style={{ color: 'red' }}>{getError('avatar')}</span>}
+            </div>
+
             <div className="form-group">
               <label>Full name</label>
               <input 
                 type="text" 
-                value={fullName}
-                onChange={(e) => { setFullName(e.target.value); setIsFormModified(true); }}
-                className={errors.fullName ? 'input-error' : ''}
+                name="fullName"
+                value={formData.fullName}
+                onChange={handleProfileChange}
+                className={getError('fullName') ? 'input-error' : ''}
               />
-              {errors.fullName && <span className="error-text">{errors.fullName}</span>}
+              {getError('fullName') && <span className="error-text" style={{ color: 'red' }}>{getError('fullName')}</span>}
             </div>
 
             <div className="form-group">
               <label>Email</label>
-              <input type="email" value={email} disabled className="input-disabled" />
+              <input type="email" value={currentUser.email} disabled className="input-disabled" />
               <span className="helper-text">Set at registration and cannot be changed</span>
             </div>
 
@@ -250,51 +246,39 @@ export default function Profile() {
               <label>Mobile number</label>
               <input 
                 type="text" 
-                value={mobile}
-                onChange={(e) => { setMobile(e.target.value); setIsFormModified(true); }}
-                className={errors.mobile ? 'input-error' : ''}
+                name="mobileNumber"
+                value={formData.mobileNumber}
+                onChange={handleProfileChange}
+                className={getError('mobileNumber') ? 'input-error' : ''}
               />
-              {errors.mobile && <span className="error-text">{errors.mobile}</span>}
+              {getError('mobileNumber') && <span className="error-text" style={{ color: 'red' }}>{getError('mobileNumber')}</span>}
             </div>
 
             <div className="form-group">
               <label>Date of birth</label>
               <input 
                 type="date" 
-                value={dob}
-                onChange={(e) => { setDob(e.target.value); setIsFormModified(true); }}
-                className={errors.dob ? 'input-error' : ''}
+                name="dateOfBirth"
+                value={formData.dateOfBirth}
+                onChange={handleProfileChange}
+                className={getError('dateOfBirth') ? 'input-error' : ''}
               />
-              {errors.dob && <span className="error-text">{errors.dob}</span>}
-              {age !== null && age < 16 && age >= 12 && !errors.dob && (
-                <span className="warning-text">Note: you cannot buy tickets for 16+ or 18+ titles.</span>
+              {getError('dateOfBirth') && <span className="error-text" style={{ color: 'red' }}>{getError('dateOfBirth')}</span>}
+              
+              {currentUser.age > 0 && !getError('dateOfBirth') && (
+                <span className="helper-text" style={{ display: 'block', marginTop: '4px', color: '#10b981' }}>
+                  You are {currentUser.age}, you can buy tickets for age-appropriate ratings.
+                </span>
               )}
             </div>
 
-            <div className="form-group">
-              <label>Preferred Venue (Optional)</label>
-              <select 
-                value={venue} 
-                onChange={(e) => { setVenue(e.target.value); setIsFormModified(true); }}
-              >
-                <option value="">Select a venue</option>
-                <option value="Galleria Tbilisi">Galleria Tbilisi</option>
-                <option value="Kutaisi Branch">Kutaisi Branch</option>
-                <option value="Batumi Mall">Batumi Mall</option>
-              </select>
-            </div>
-
-            <button 
-              className={`btn-save ${(!isFormModified || Object.keys(errors).length > 0) ? 'disabled' : ''}`}
-              onClick={handleSave}
-              disabled={!isFormModified || Object.keys(errors).length > 0 || isSaving}
-            >
+            <button type="submit" className="btn-save" disabled={isSaving}>
               {isSaving ? 'Saving...' : 'Save changes'}
             </button>
-          </div>
+            {successMessage && <div style={{ color: '#10b981', marginTop: '10px' }}>{successMessage}</div>}
+          </form>
         )}
 
-        {/* Tab Content: My Tickets */}
         {activeMainTab === 'tickets' && (
           <div className="tab-content tickets-section">
             <div className="ticket-subtabs">
@@ -302,25 +286,23 @@ export default function Profile() {
                 className={`subtab-btn ${activeTicketTab === 'upcoming' ? 'active' : ''}`}
                 onClick={() => setActiveTicketTab('upcoming')}
               >
-                Upcoming <span className="subtab-count">{upcomingTickets.length}</span>
+                Upcoming
               </button>
               <button 
                 className={`subtab-btn ${activeTicketTab === 'past' ? 'active' : ''}`}
                 onClick={() => setActiveTicketTab('past')}
               >
-                Past <span className="subtab-count">{mockPastTickets.length}</span>
+                Past
               </button>
             </div>
 
             <div className="ticket-list">
-              {activeTicketTab === 'upcoming' ? (
-                upcomingTickets.length > 0 ? (
-                  upcomingTickets.map(t => renderTicketCard(t, false))
-                ) : (
-                  <p className="no-tickets">You have no upcoming tickets.</p>
-                )
+              {isTicketsLoading ? (
+                <p>Loading tickets...</p>
+              ) : orders.length > 0 ? (
+                orders.map(order => renderTicketCard(order))
               ) : (
-                mockPastTickets.map(t => renderTicketCard(t, true))
+                <p className="no-tickets">You have no {activeTicketTab} tickets.</p>
               )}
             </div>
           </div>
