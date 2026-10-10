@@ -292,7 +292,16 @@
 .sess-grid {
   display: flex;
   gap: 16px;
-  flex-wrap: wrap;
+  overflow-x: auto;
+  padding-bottom: 12px;
+  scroll-behavior: smooth;
+}
+.sess-grid::-webkit-scrollbar {
+  height: 6px;
+}
+.sess-grid::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
 }
 
 .sess-card {
@@ -394,4 +403,19 @@
 .sess-pagination button:disabled {
   opacity: 0.3;
   cursor: not-allowed;
+}
+
+.sess-sort-control select {
+  background-color: #1a1d20;
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.sess-sort-control select option {
+  background-color: #1a1d20;
+  color: white;
+  padding: 8px;
 }

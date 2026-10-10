@@ -1,22 +1,15 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
+import { fetchSessionSeats, holdSessionSeats, createOrder } from '../../api';
 import './BookingModal.css';
-
-// Simulated API response for hall layout
-const MOCK_HALL_LAYOUT = {
-  rows: [
-    { id: 'A', seats: Array.from({ length: 10 }, (_, i) => ({ id: `A${i + 1}`, number: i + 1, status: i === 4 ? 'sold' : 'available' })) },
-    { id: 'B', seats: Array.from({ length: 10 }, (_, i) => ({ id: `B${i + 1}`, number: i + 1, status: (i === 1 || i === 2) ? 'held' : 'available' })) },
-    { id: 'C', seats: Array.from({ length: 10 }, (_, i) => ({ id: `C${i + 1}`, number: i + 1, status: 'available' })) },
-    { id: 'D', seats: Array.from({ length: 10 }, (_, i) => ({ id: `D${i + 1}`, number: i + 1, status: 'available' })) },
-  ]
-};
 
 export default function BookingModal({ session, onClose }) {
   const [step, setStep] = useState(1); // 1: Seats, 2: Checkout, 3: Success
-  const [selectedSeats, setSelectedSeats] = useState([]); // { id, type: 'Adult' | 'Child' | 'Student', price }
+  const [hallLayout, setHallLayout] = useState({ rows: [] });
+  const [selectedSeats, setSelectedSeats] = useState([]); // { id, number, type: 'Adult' | 'Child' | 'Student', price }
+  const [holdToken, setHoldToken] = useState(null);
   const [holdTimer, setHoldTimer] = useState(null);
   
-  // Checkout Form State (Mocked to match persona requested)
+  // Checkout Form State
   const [form, setForm] = useState({
     fullName: 'Meri Sanikidze',
     email: 'merisanikidze@gmail.com',
@@ -27,8 +20,22 @@ export default function BookingModal({ session, onClose }) {
   });
   const [formErrors, setFormErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [orderResponse, setOrderResponse] = useState(null);
 
-  // Timer Logic
+  // STEP 1: Fetch live seat layout when modal opens (GET /sessions/{id}/seats)
+  useEffect(() => {
+    const loadSeats = async () => {
+      const data = await fetchSessionSeats(session.id);
+      if (data) {
+        setHallLayout(data);
+      }
+    };
+    if (session?.id) {
+      loadSeats();
+    }
+  }, [session?.id]);
+
+  // Timer Logic for Holds
   useEffect(() => {
     let interval;
     if (step === 2 && holdTimer > 0) {
@@ -40,11 +47,13 @@ export default function BookingModal({ session, onClose }) {
       setStep(1);
       setSelectedSeats([]);
       setHoldTimer(null);
+      setHoldToken(null);
     }
     return () => clearInterval(interval);
   }, [step, holdTimer]);
 
-  const toggleSeat = (seatId) => {
+  const toggleSeat = (seat) => {
+    const seatId = seat.id;
     const isSelected = selectedSeats.find(s => s.id === seatId);
     if (isSelected) {
       setSelectedSeats(selectedSeats.filter(s => s.id !== seatId));
@@ -53,7 +62,13 @@ export default function BookingModal({ session, onClose }) {
         alert("Maximum 3 seats allowed per order.");
         return;
       }
-      setSelectedSeats([...selectedSeats, { id: seatId, type: 'Adult', price: session.price }]);
+      setSelectedSeats([...selectedSeats, { 
+        id: seatId, 
+        number: seat.number || seat.seatNumber, 
+        rowNumber: seat.rowNumber || seat.row,
+        type: 'Adult', 
+        price: session.price 
+      }]);
     }
   };
 
@@ -74,11 +89,20 @@ export default function BookingModal({ session, onClose }) {
 
   const subtotal = selectedSeats.reduce((sum, seat) => sum + seat.price, 0);
 
-  const handleHoldSeats = () => {
+  // STEP 2: Hold seats via POST /sessions/{id}/holds
+  const handleHoldSeats = async () => {
     if (selectedSeats.length === 0) return;
-    // Simulate API Hold Request
-    setHoldTimer(480); // 8 minutes = 480 seconds
-    setStep(2);
+    
+    const seatIds = selectedSeats.map(s => s.id);
+    const response = await holdSessionSeats(session.id, seatIds);
+    
+    if (response && (response.holdToken || response.token)) {
+      setHoldToken(response.holdToken || response.token);
+      setHoldTimer(response.expiresIn || 480); // Default to 8 mins (480s)
+      setStep(2);
+    } else {
+      alert("Failed to hold selected seats. They might have just been taken.");
+    }
   };
 
   const formatTime = (seconds) => {
@@ -88,7 +112,8 @@ export default function BookingModal({ session, onClose }) {
     return `${m}:${s}`;
   };
 
-  const handleCheckout = () => {
+  // STEP 3: Create order via POST /orders
+  const handleCheckout = async () => {
     const errors = {};
     if (form.cardNumber.replace(/\s/g, '').length !== 16) errors.cardNumber = "Invalid card length";
     if (!form.expiry.includes('/')) errors.expiry = "Use MM/YY format";
@@ -100,10 +125,32 @@ export default function BookingModal({ session, onClose }) {
     }
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
+    
+    const orderPayload = {
+      holdToken: holdToken,
+      sessionId: session.id,
+      seats: selectedSeats.map(s => ({ seatId: s.id, ticketType: s.type })),
+      customer: {
+        fullName: form.fullName,
+        email: form.email,
+        mobile: form.mobile
+      },
+      payment: {
+        cardNumber: form.cardNumber,
+        expiry: form.expiry,
+        cvv: form.cvv
+      }
+    };
+
+    const result = await createOrder(orderPayload);
+    setIsSubmitting(false);
+
+    if (result) {
+      setOrderResponse(result);
       setStep(3); // Success
-    }, 1500);
+    } else {
+      alert("Order placement failed. Please check your payment details.");
+    }
   };
 
   return (
@@ -138,36 +185,35 @@ export default function BookingModal({ session, onClose }) {
             <>
               <div className="hall-map-section">
                 <div className="screen-indicator">SCREEN</div>
-                
-                {/* NEW: Stalls Label */}
-                <div className="stalls-label">STALLS · ROWS A-D</div>
+                <div className="stalls-label">STALLS</div>
                 
                 <div className="seats-grid">
-                  {MOCK_HALL_LAYOUT.rows.map(row => (
-                    <div key={row.id} className="seat-row">
-                      <span className="row-label">{row.id}</span>
-                      {row.seats.map(seat => {
+                  {hallLayout.rows?.map(row => (
+                    <div key={row.id || row.rowNumber} className="seat-row">
+                      <span className="row-label">{row.id || row.rowNumber}</span>
+                      {row.seats?.map(seat => {
                         const isSelected = selectedSeats.some(s => s.id === seat.id);
+                        const isTaken = seat.isBooked || seat.status === 'sold' || seat.status === 'booked';
+                        const seatNum = seat.number || seat.seatNumber;
                         return (
                           <button
                             key={seat.id}
-                            // NEW: Adding 'aisle-left' class to seat #5 to create the gap
-                            className={`seat-btn ${seat.status} ${isSelected ? 'selected' : ''} ${seat.number === 5 ? 'aisle-left' : ''}`}
-                            disabled={seat.status !== 'available'}
-                            onClick={() => toggleSeat(seat.id)}
+                            className={`seat-btn ${isTaken ? 'sold' : 'available'} ${isSelected ? 'selected' : ''} ${seatNum === 5 ? 'aisle-left' : ''}`}
+                            disabled={isTaken}
+                            onClick={() => toggleSeat(seat)}
                           >
-                            {seat.number}
+                            {seatNum}
                           </button>
                         );
                       })}
                     </div>
                   ))}
                 </div>
+                
                 <div className="seat-legend">
                   <span><div className="legend-box available"></div> Available</span>
                   <span><div className="legend-box selected"></div> Selected</span>
                   <span><div className="legend-box sold"></div> Sold</span>
-                  <span><div className="legend-box held"></div> Held by another user</span>
                 </div>
               </div>
 
@@ -180,15 +226,10 @@ export default function BookingModal({ session, onClose }) {
                     {selectedSeats.map(seat => (
                       <div key={seat.id} className="seat-ticket-row">
                         <div className="seat-header">
-                          <span className="seat-id">Seat &nbsp;&nbsp;<strong>{seat.id}</strong></span>
+                          <span className="seat-id">Seat &nbsp;&nbsp;<strong>{seat.rowNumber}{seat.number}</strong></span>
                           <div className="seat-price-remove">
                             <span className="seat-price-top">₾{seat.price.toFixed(0)}</span>
-                            <button 
-                              className="btn-remove-seat" 
-                              onClick={() => toggleSeat(seat.id)}
-                            >
-                              ✕
-                            </button>
+                            <button className="btn-remove-seat" onClick={() => toggleSeat(seat)}>✕</button>
                           </div>
                         </div>
                         
@@ -288,18 +329,17 @@ export default function BookingModal({ session, onClose }) {
                 <h3>Summary</h3>
                 <div className="summary-card">
                   <h4>{session.movieTitle}</h4>
-                  <p className="sum-meta">{session.hall} · Tue 15 Sep · {session.time}</p>
+                  <p className="sum-meta">{session.hall} · {session.time}</p>
                   
                   <div className="seat-divider"></div>
                   
                   <div className="sum-row">
                     <span className="sum-label">Seats</span>
-                    <span className="sum-value">{selectedSeats.map(s => s.id).join(', ')}</span>
+                    <span className="sum-value">{selectedSeats.map(s => `${s.rowNumber || ''}${s.number}`).join(', ')}</span>
                   </div>
                   <div className="sum-row">
                     <span className="sum-label">Tickets</span>
                     <span className="sum-value">
-                      {/* Dynamically count ticket types for the summary */}
                       {Object.entries(
                         selectedSeats.reduce((acc, seat) => {
                           acc[seat.type] = (acc[seat.type] || 0) + 1;
@@ -317,7 +357,6 @@ export default function BookingModal({ session, onClose }) {
                 <button 
                   className="btn-next" 
                   onClick={handleCheckout}
-                  /* Disables the button if any input is empty OR if the form is submitting */
                   disabled={!form.cardNumber || !form.expiry || !form.cvv || isSubmitting} 
                 >
                   {isSubmitting ? 'Processing...' : 'Pay & Complete order'}
@@ -333,21 +372,19 @@ export default function BookingModal({ session, onClose }) {
               <h2>Booking confirmed!</h2>
               <p>Your tickets are ready. We've sent the confirmation to your email.</p>
               
-              <div className="order-badge">ORDER #KX-48291</div>
+              <div className="order-badge">ORDER #{orderResponse?.id || orderResponse?.orderNumber || 'KX-48291'}</div>
               
               <div className="success-card">
                 <div className="succ-header">
-                  {/* Using a placeholder poster image to prevent crashes since MOVIE_DATA isn't imported here */}
-                  <img src="https://images.unsplash.com/photo-1626814026160-2237a95fc5a0?q=80&w=400&auto=format&fit=crop" alt="Poster" />
                   <div className="succ-header-info">
                     <h4>{session.movieTitle}</h4>
-                    <p>{session.venue} · {session.hall} · Tue 15 Sep · {session.time}</p>
+                    <p>{session.venue} · {session.hall} · {session.time}</p>
                   </div>
                 </div>
                 
                 <div className="succ-row">
                   <span className="succ-label">Seats</span>
-                  <span className="succ-value">{selectedSeats.map(s => s.id).join(', ')}</span>
+                  <span className="succ-value">{selectedSeats.map(s => `${s.rowNumber || ''}${s.number}`).join(', ')}</span>
                 </div>
                 
                 <div className="succ-row">

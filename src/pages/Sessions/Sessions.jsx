@@ -1,34 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { fetchSessions } from '../../api';
 import './Sessions.css';
 
-const VENUES = ['Galleria Tbilisi', 'Rustaveli Palace', 'Vake Park', 'Batumi Boulevard'];
-const ALL_FORMATS = ['Standard', 'MAX', 'ATMOS', 'PANORAMA', 'MOTION'];
-const LANGUAGES = ['Georgian Dub', 'Georgian Sub', 'Original + Subtitles', 'English Dub'];
 const TIMES_OF_DAY = [
   { id: 'morning', label: 'Morning', desc: 'before 12:00' },
   { id: 'afternoon', label: 'Afternoon', desc: '12:00–18:00' },
   { id: 'evening', label: 'Evening', desc: 'after 18:00' }
-];
-
-const mockMovies = [
-  {
-    id: 1, title: 'The Odyssey', age: '12+', duration: '134 min',
-    poster: 'https://images.unsplash.com/photo-1626814026160-2237a95fc5a0?q=80&w=400&auto=format&fit=crop',
-    sessions: [
-      { id: 101, time: '10:15', format: 'Standard', lang: 'Original + Subtitles', venue: 'Galleria Tbilisi', hall: 'Hall D', price: 22, seats: 21 },
-      { id: 102, time: '14:00', format: 'MAX', lang: 'Original + Subtitles', venue: 'Galleria Tbilisi', hall: 'Hall D', price: 22, seats: 1 },
-      { id: 103, time: '16:30', format: 'PANORAMA', lang: 'Original + Subtitles', venue: 'Galleria Tbilisi', hall: 'Hall D', price: 22, seats: 45 },
-    ]
-  },
-  {
-    id: 2, title: 'Avengers: Doomsday', age: '12+', duration: '134 min',
-    poster: 'https://images.unsplash.com/photo-1635805737707-575885ab0820?q=80&w=400&auto=format&fit=crop',
-    sessions: [
-      { id: 201, time: '10:15', format: 'PANORAMA', lang: 'Original + Subtitles', venue: 'Galleria Tbilisi', hall: 'Hall D', price: 22, seats: 3 },
-      { id: 202, time: '16:30', format: 'Standard', lang: 'Original + Subtitles', venue: 'Galleria Tbilisi', hall: 'Hall D', price: 22, seats: 0 }, 
-    ]
-  }
 ];
 
 const generateDates = () => {
@@ -46,31 +24,47 @@ const generateDates = () => {
   return dates;
 };
 
-export default function Sessions() {
+export default function Sessions({ filterOptions }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const dates = useMemo(() => generateDates(), []);
 
+  // State for real API data
+  const [sessionsData, setSessionsData] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Extract current filters from URL
   const selectedDate = searchParams.get('date') || dates[0].full;
-  const selectedVenues = searchParams.get('venue') ? searchParams.get('venue').split(',') : [];
-  const selectedFormats = searchParams.get('format') ? searchParams.get('format').split(',') : [];
-  const selectedLangs = searchParams.get('language') ? searchParams.get('language').split(',') : [];
+  const selectedVenues = searchParams.get('venue_id') ? searchParams.get('venue_id').split(',') : [];
+  const selectedFormats = searchParams.get('format_id') ? searchParams.get('format_id').split(',') : [];
+  const selectedLangs = searchParams.get('language_id') ? searchParams.get('language_id').split(',') : [];
   const selectedTimes = searchParams.get('time') ? searchParams.get('time').split(',') : [];
   const sortOrder = searchParams.get('sort') || 'time_asc';
   const currentPage = parseInt(searchParams.get('page') || '1', 10);
 
-  const availableFormats = useMemo(() => {
-    if (selectedVenues.length === 0) return ALL_FORMATS;
-    const formatsInVenues = new Set();
-    mockMovies.forEach(movie => {
-      movie.sessions.forEach(session => {
-        if (selectedVenues.includes(session.venue)) {
-          formatsInVenues.add(session.format);
-        }
-      });
-    });
-    return ALL_FORMATS.filter(f => formatsInVenues.has(f));
-  }, [selectedVenues]);
+  // Fetch real sessions from backend whenever URL search parameters change
+  useEffect(() => {
+    const loadSessions = async () => {
+      setIsLoading(true);
+      
+      // Create params object and omit 'page' so the backend returns all filtered items 
+      // for client-side slicing across pages.
+      const paramsObject = Object.fromEntries([...searchParams]);
+      delete paramsObject.page;
+      
+      const response = await fetchSessions(paramsObject);
+      const items = response?.data || response || [];
+      
+      setSessionsData(items);
+      setIsLoading(false);
+    };
+
+    loadSessions();
+  }, [searchParams]);
+
+  // Enforce strict frontend pagination (4 items per page)
+  const totalPages = Math.ceil(sessionsData.length / 4) || 1;
+  const currentSlicedData = sessionsData.slice((currentPage - 1) * 4, currentPage * 4);
 
   const updateParams = (key, value) => {
     const newParams = new URLSearchParams(searchParams);
@@ -86,9 +80,10 @@ export default function Sessions() {
   };
 
   const toggleArrayParam = (key, currentValues, val) => {
-    const newValues = currentValues.includes(val)
-      ? currentValues.filter(v => v !== val)
-      : [...currentValues, val];
+    const stringVal = String(val);
+    const newValues = currentValues.includes(stringVal)
+      ? currentValues.filter(v => v !== stringVal)
+      : [...currentValues, stringVal];
     updateParams(key, newValues);
   };
 
@@ -111,15 +106,15 @@ export default function Sessions() {
           
           <div className="sess-filter-section">
             <h3 className="sess-filter-label">VENUE</h3>
-            {VENUES.map(v => (
-              <label key={v} className="sess-custom-checkbox">
+            {filterOptions?.venues?.map(v => (
+              <label key={v.id} className="sess-custom-checkbox">
                 <input 
                   type="checkbox" 
-                  checked={selectedVenues.includes(v)}
-                  onChange={() => toggleArrayParam('venue', selectedVenues, v)}
+                  checked={selectedVenues.includes(String(v.id))}
+                  onChange={() => toggleArrayParam('venue_id', selectedVenues, v.id)}
                 />
                 <span className="sess-checkmark"></span>
-                {v}
+                {v.name}
               </label>
             ))}
           </div>
@@ -142,30 +137,30 @@ export default function Sessions() {
 
           <div className="sess-filter-section">
             <h3 className="sess-filter-label">FORMAT</h3>
-            {availableFormats.map(f => (
-              <label key={f} className="sess-custom-checkbox">
+            {filterOptions?.formats?.map(f => (
+              <label key={f.id} className="sess-custom-checkbox">
                 <input 
                   type="checkbox" 
-                  checked={selectedFormats.includes(f)}
-                  onChange={() => toggleArrayParam('format', selectedFormats, f)}
+                  checked={selectedFormats.includes(String(f.id))}
+                  onChange={() => toggleArrayParam('format_id', selectedFormats, f.id)}
                 />
                 <span className="sess-checkmark"></span>
-                {f}
+                {f.name}
               </label>
             ))}
           </div>
 
           <div className="sess-filter-section">
             <h3 className="sess-filter-label">LANGUAGE</h3>
-            {LANGUAGES.map(l => (
-              <label key={l} className="sess-custom-checkbox">
+            {filterOptions?.languages?.map(l => (
+              <label key={l.id} className="sess-custom-checkbox">
                 <input 
                   type="checkbox" 
-                  checked={selectedLangs.includes(l)}
-                  onChange={() => toggleArrayParam('language', selectedLangs, l)}
+                  checked={selectedLangs.includes(String(l.id))}
+                  onChange={() => toggleArrayParam('language_id', selectedLangs, l.id)}
                 />
                 <span className="sess-checkmark"></span>
-                {l}
+                {l.name}
               </label>
             ))}
           </div>
@@ -193,7 +188,7 @@ export default function Sessions() {
 
         <main className="sess-content">
           <div className="sess-content-header">
-            <p className="sess-results-count">Showing {mockMovies.length} sessions</p>
+            <p className="sess-results-count">Showing {currentSlicedData.length} movies on this page</p>
             <div className="sess-sort-control">
               <span>Sort:</span>
               <select value={sortOrder} onChange={(e) => updateParams('sort', e.target.value)}>
@@ -206,50 +201,63 @@ export default function Sessions() {
             </div>
           </div>
 
-          <div className="sess-movies-list">
-            {mockMovies.map(movie => (
-              <div key={movie.id} className="sess-movie-group">
-                <div className="sess-movie-info">
-                  <img src={movie.poster} alt={movie.title} className="sess-movie-poster" />
-                  <div>
-                    <h3 className="sess-movie-title">{movie.title} <span className="sess-age-tag">{movie.age}</span></h3>
-                    <p className="sess-movie-duration">{movie.duration}</p>
-                  </div>
-                </div>
-                
-                <div className="sess-grid">
-                  {movie.sessions.map(session => {
-                    const isSoldOut = session.seats === 0;
-                    return (
-                      <div 
-                        key={session.id} 
-                        className={`sess-card ${isSoldOut ? 'sold-out' : ''}`}
-                        onClick={() => !isSoldOut && navigate(`/session/${session.id}/seats`)}
-                      >
-                        <div className="sess-card-header">
-                          <span className="sess-time">{session.time}</span>
-                          <span className="sess-format">{session.format}</span>
-                        </div>
-                        <p className="sess-lang">{session.lang}</p>
-                        <p className="sess-venue">{session.venue} · {session.hall}</p>
-                        
-                        <div className="sess-card-footer">
-                          {isSoldOut ? (
-                            <span className="sess-seats-status sold-out-text">Sold out</span>
-                          ) : (
-                            <span className="sess-seats-status available-text">
-                              <span className="sess-ticket-icon">🎟</span> {session.seats} left
-                            </span>
-                          )}
-                          <span className="sess-price">₾{session.price}</span>
-                        </div>
+          {isLoading ? (
+            <p style={{ color: 'white', padding: '40px' }}>Loading live sessions...</p>
+          ) : currentSlicedData.length === 0 ? (
+            <p style={{ color: 'white', padding: '40px' }}>No sessions match your selected filters.</p>
+          ) : (
+            <div className="sess-movies-list">
+              {currentSlicedData.map((movieGroup, index) => {
+                const movie = movieGroup.movie;
+                const sessionsList = movieGroup.sessions;
+
+                return (
+                  <div key={movie?.id || index} className="sess-movie-group">
+                    <div className="sess-movie-info">
+                      <img src={movie?.posterUrl} alt={movie?.title} className="sess-movie-poster" />
+                      <div>
+                        <h3 className="sess-movie-title">
+                          {movie?.title} <span className="sess-age-tag">{movie?.ageRating?.code}</span>
+                        </h3>
+                        <p className="sess-movie-duration">{movie?.runtimeMinutes} min</p>
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
+                    </div>
+                    
+                    <div className="sess-grid">
+                      {sessionsList?.map(session => {
+                        const isSoldOut = session.isSoldOut || session.seatsLeft === 0;
+                        return (
+                          <div 
+                            key={session.id} 
+                            className={`sess-card ${isSoldOut ? 'sold-out' : ''}`}
+                            onClick={() => !isSoldOut && navigate(`/movie/${movie?.slug || movie?.id}?openBooking=true`, { state: { openBooking: true, sessionId: session.id } })}
+                          >
+                            <div className="sess-card-header">
+                              <span className="sess-time">{session.time}</span>
+                              <span className="sess-format">{session.format?.name}</span>
+                            </div>
+                            <p className="sess-lang">{session.language?.name}</p>
+                            <p className="sess-venue">{session.venue?.name} · Hall {session.hall?.name}</p>
+                            
+                            <div className="sess-card-footer">
+                              {isSoldOut ? (
+                                <span className="sess-seats-status sold-out-text">Sold out</span>
+                              ) : (
+                                <span className="sess-seats-status available-text">
+                                  <span className="sess-ticket-icon">🎟</span> {session.seatsLeft} left
+                                </span>
+                              )}
+                              <span className="sess-price">₾{session.price}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           <div className="sess-pagination">
             <button 
@@ -258,8 +266,23 @@ export default function Sessions() {
             >
               &lt;
             </button>
-            <button className="active">{currentPage}</button>
-            <button onClick={() => updateParams('page', currentPage + 1)}>&gt;</button>
+            
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
+              <button 
+                key={pageNum}
+                className={currentPage === pageNum ? 'active' : ''}
+                onClick={() => updateParams('page', pageNum)}
+              >
+                {pageNum}
+              </button>
+            ))}
+
+            <button 
+              disabled={currentPage >= totalPages} 
+              onClick={() => updateParams('page', currentPage + 1)}
+            >
+              &gt;
+            </button>
           </div>
         </main>
       </div>
