@@ -82,7 +82,10 @@ function App() {
         <Routes>
           <Route path="/" element={<Home filterOptions={filterOptions} />} />
           <Route path="/sessions" element={<Sessions filterOptions={filterOptions} />} />
-          <Route path="/movie/:id" element={<MovieDetails filterOptions={filterOptions} />} />
+          <Route 
+  path="/movie/:id" 
+  element={<MovieDetails filterOptions={filterOptions} currentUser={currentUser} />} 
+/>
           
           {/* Profile will likely need the currentUser data to know what to display/edit */}
           <Route 

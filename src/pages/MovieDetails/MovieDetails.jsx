@@ -6,12 +6,19 @@ import './MovieDetails.css';
 
 const generateDates = () => {
   const dates = [];
-  const today = new Date("2026-10-10T00:00:00+04:00"); 
+  const today = new Date(); // Dynamically gets the current local date
+  
   for (let i = 0; i < 7; i++) {
     const d = new Date(today);
     d.setDate(today.getDate() + i);
+    
+    // Safely format as YYYY-MM-DD using local time to prevent UTC timezone drift
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    
     dates.push({
-      full: d.toISOString().split('T')[0],
+      full: `${yyyy}-${mm}-${dd}`,
       dayName: d.toLocaleDateString('en-US', { weekday: 'short' }),
       dayNum: d.getDate()
     });
@@ -29,7 +36,7 @@ const groupSessionsByHall = (sessionsArray) => {
   return halls;
 };
 
-export default function MovieDetails() {
+export default function MovieDetails({ filterOptions, currentUser }) {
   const { id } = useParams();
   const navigate = useNavigate();
   const dates = useMemo(() => generateDates(), []);

@@ -1,32 +1,31 @@
 import { useState, useEffect, Fragment, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { fetchSessionSeats, holdSessionSeats, createOrder, fetchHold, releaseHold } from '../../api';
 import './BookingModal.css';
 
-// Accept filterOptions as a prop from MovieDetails
-export default function BookingModal({ session, onClose, filterOptions }) {
+export default function BookingModal({ session, onClose, filterOptions, currentUser }) {
   const [step, setStep] = useState(1);
   const [hallLayout, setHallLayout] = useState([]); 
   const [selectedSeats, setSelectedSeats] = useState([]);
+  const navigate = useNavigate();
   
-  // 1. Read configuration dynamically from the global state
   const ticketTypes = filterOptions?.ticketTypes || [
     { slug: 'adult', name: 'Adult', ratio: 1 },
     { slug: 'student', name: 'Student', ratio: 0.75 },
     { slug: 'child', name: 'Child', ratio: 0.6 }
   ];
   const MAX_SEATS = filterOptions?.maxSeatsPerOrder || 3;
-  // Hold timer is handled by the server's expiresAt, but it's good practice to extract this
-  const HOLD_TIMER_MINUTES = filterOptions?.holdMinutes || 8; 
   
   const [holdToken, setHoldToken] = useState(null);
   const [expiresAt, setExpiresAt] = useState(null);
   const [timeRemaining, setTimeRemaining] = useState(null);
   const [isLoadingSeats, setIsLoadingSeats] = useState(true);
   
+  // Prefill user data from the profile
   const [form, setForm] = useState({
-    fullName: 'John Doe',
-    email: 'john.doe@example.com',
-    mobile: '555123456',
+    fullName: currentUser?.fullName || '',
+    email: currentUser?.email || '',
+    mobile: currentUser?.mobileNumber || '',
     cardNumber: '',
     expiry: '',
     cvv: ''
@@ -42,22 +41,18 @@ export default function BookingModal({ session, onClose, filterOptions }) {
     setIsLoadingSeats(false);
   }, [session.id]);
 
-  // Initial Data Fetch & Hold Recovery
   useEffect(() => {
     loadSeats();
 
-    // Check for an active hold for this session on reload
     const recoverHold = async () => {
       const savedHoldId = sessionStorage.getItem(`activeHold_${session.id}`);
       if (savedHoldId) {
         const { status, data } = await fetchHold(savedHoldId);
         if (status === 200 && data?.data?.isLive) {
           const holdInfo = data.data;
-          
           setHoldToken(holdInfo.holdId);
           setExpiresAt(holdInfo.expiresAt);
           
-          // Reconstruct the selected seats array from the API response
           const restoredSeats = holdInfo.seats.map(s => ({
             id: s.seatId,
             code: s.code,
@@ -68,7 +63,6 @@ export default function BookingModal({ session, onClose, filterOptions }) {
           setSelectedSeats(restoredSeats);
           setStep(2);
         } else {
-          // Clean up if it's expired or 404
           sessionStorage.removeItem(`activeHold_${session.id}`);
         }
       }
@@ -76,7 +70,7 @@ export default function BookingModal({ session, onClose, filterOptions }) {
     recoverHold();
   }, [loadSeats, session.id]);
 
-  // Expiration Timer
+  // Expiration Timer driven by expiresAt
   useEffect(() => {
     if (step !== 2 || !expiresAt) return;
 
@@ -103,7 +97,7 @@ export default function BookingModal({ session, onClose, filterOptions }) {
     return () => clearInterval(interval);
   }, [step, expiresAt, loadSeats, session.id]);
 
-  // Handle Modal Close (Release seats if abandoned)
+  // Release hold on intentional modal close or explicit cancellation
   const handleClose = () => {
     if (holdToken && step < 3) {
       releaseHold(holdToken);
@@ -117,7 +111,6 @@ export default function BookingModal({ session, onClose, filterOptions }) {
     if (isSelected) {
       setSelectedSeats(selectedSeats.filter(s => s.id !== seat.id));
     } else {
-      // 2. Use dynamic limit instead of hardcoded 3
       if (selectedSeats.length >= MAX_SEATS) {
         alert(`Maximum ${MAX_SEATS} seats allowed per order.`);
         return;
@@ -149,7 +142,7 @@ export default function BookingModal({ session, onClose, filterOptions }) {
     const holdPayload = {
       seats: selectedSeats.map(s => ({
         seatId: s.id,
-        type: s.type 
+        ticketType: s.type 
       }))
     };
     
@@ -164,12 +157,17 @@ export default function BookingModal({ session, onClose, filterOptions }) {
     } else if (status === 401) {
       alert("Please log in to reserve seats.");
     } else if (status === 409) {
+      // Reconcile contested seats
       const contested = data.contested || [];
-      alert(`Someone just took these seats: ${contested.join(', ')}`);
+      alert(`${data.message}\nSeats lost: ${contested.join(', ')}`);
       setSelectedSeats(prev => prev.filter(s => !contested.includes(s.code)));
       loadSeats();
     } else if (status === 422) {
       alert(data.message || "Booking rule validation failed.");
+      if (data.message?.toLowerCase().includes("profile")) {
+        onClose();
+        navigate('/profile');
+      }
     } else {
       alert("Failed to hold seats. Please try again.");
     }
@@ -182,43 +180,61 @@ export default function BookingModal({ session, onClose, filterOptions }) {
     return `${m}:${s}`;
   };
 
-  // POST /orders
+// POST /orders
   const handleCheckout = async () => {
-    const errors = {};
-    if (form.cardNumber.replace(/\s/g, '').length !== 16) errors.cardNumber = "Invalid card length";
-    if (!form.expiry.includes('/')) errors.expiry = "Use MM/YY format";
-    if (form.cvv.length !== 3) errors.cvv = "Invalid CVV";
-    
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
-      return;
-    }
-
+    setFormErrors({});
     setIsSubmitting(true);
     
     const orderPayload = {
-      token: holdToken, 
-      customer: {
-        name: form.fullName,
-        email: form.email,
-        phone: form.mobile
-      },
-      payment: {
-        number: form.cardNumber,
-        expiration: form.expiry,
-        cvv: form.cvv
-      }
+      holdId: holdToken, 
+      fullName: form.fullName,
+      email: form.email,
+      mobileNumber: form.mobile,
+      cardNumber: form.cardNumber,
+      expiration: form.expiry, 
+      expiry: form.expiry,
+      cvv: form.cvv
     };
 
-    const result = await createOrder(orderPayload);
+    const { status, data } = await createOrder(orderPayload);
     setIsSubmitting(false);
 
-    if (result) {
-      sessionStorage.removeItem(`activeHold_${session.id}`); // Clean up storage
-      setOrderResponse(result);
+    if (status === 201) {
+      sessionStorage.removeItem(`activeHold_${session.id}`); 
+      setOrderResponse(data.data || data);
       setStep(3);
+    } else if (status === 422) {
+      if (data.errors) {
+        setFormErrors(data.errors);
+        
+        // Anti-Silent Failure: Force an alert so we can immediately see what Laravel is rejecting
+        const allErrors = Object.values(data.errors).flat().join('\n');
+        if (allErrors) {
+          alert("Validation Failed:\n" + allErrors);
+        }
+      } else {
+        alert(data.message); // Handle global rule rejections (e.g., Hold Expired)
+        setStep(1);
+        setSelectedSeats([]);
+        setExpiresAt(null);
+        setHoldToken(null);
+        sessionStorage.removeItem(`activeHold_${session.id}`);
+        loadSeats();
+      }
+    } else if (status === 409) {
+      const contested = data.contested || [];
+      alert(`Checkout failed. Seats sold elsewhere: ${contested.join(', ')}`);
+      setSelectedSeats(prev => prev.filter(s => !contested.includes(s.code)));
+      setStep(1);
+      setExpiresAt(null);
+      setHoldToken(null);
+      sessionStorage.removeItem(`activeHold_${session.id}`);
+      loadSeats();
+    } else if (status === 403) {
+      alert("This hold belongs to another account. Please restart your booking.");
+      handleClose();
     } else {
-      alert("Order placement failed. Please check your payment details.");
+      alert("Order placement failed. Please try again.");
     }
   };
 
@@ -315,7 +331,6 @@ export default function BookingModal({ session, onClose, filterOptions }) {
               </div>
 
               <div className="ticket-types-section">
-                {/* 3. Use dynamic limit in UI elements */}
                 <h3>Your seats · Max {MAX_SEATS}</h3>
                 {selectedSeats.length === 0 ? (
                   <p className="empty-seats">Pick up to {MAX_SEATS} seats from the map. Each seat can carry its own ticket type.</p>
@@ -380,32 +395,66 @@ export default function BookingModal({ session, onClose, filterOptions }) {
                 <div className="form-row">
                   <div className="input-group">
                     <label>Full name</label>
-                    <input type="text" value={form.fullName} readOnly className="input-filled" />
+                    <input 
+                      type="text" 
+                      value={form.fullName} 
+                      onChange={e => {
+                        setForm({ ...form, fullName: e.target.value });
+                        if (formErrors.fullName) setFormErrors({ ...formErrors, fullName: null });
+                      }}
+                      className={formErrors.fullName ? 'error' : 'input-filled'} 
+                    />
+                    {formErrors.fullName && <span className="error-text" style={{color: 'red', fontSize: '12px'}}>{Array.isArray(formErrors.fullName) ? formErrors.fullName[0] : formErrors.fullName}</span>}
                   </div>
                 </div>
+                
                 <div className="form-row">
                   <div className="input-group">
                     <label>Email</label>
-                    <input type="email" value={form.email} readOnly className="input-filled" />
+                    <input 
+                      type="email" 
+                      value={form.email} 
+                      onChange={e => {
+                        setForm({ ...form, email: e.target.value });
+                        if (formErrors.email) setFormErrors({ ...formErrors, email: null });
+                      }}
+                      className={formErrors.email ? 'error' : 'input-filled'} 
+                    />
+                    {formErrors.email && <span className="error-text" style={{color: 'red', fontSize: '12px'}}>{Array.isArray(formErrors.email) ? formErrors.email[0] : formErrors.email}</span>}
                   </div>
                   <div className="input-group">
                     <label>Mobile number</label>
-                    <input type="text" value={form.mobile} readOnly className="input-filled" />
+                    <input 
+                      type="text" 
+                      value={form.mobile} 
+                      onChange={e => {
+                        setForm({ ...form, mobile: e.target.value });
+                        if (formErrors.mobileNumber) setFormErrors({ ...formErrors, mobileNumber: null });
+                      }}
+                      className={formErrors.mobileNumber ? 'error' : 'input-filled'} 
+                    />
+                    {formErrors.mobileNumber && <span className="error-text" style={{color: 'red', fontSize: '12px'}}>{Array.isArray(formErrors.mobileNumber) ? formErrors.mobileNumber[0] : formErrors.mobileNumber}</span>}
                   </div>
                 </div>
+                
                 <div className="form-row">
                   <div className="input-group">
                     <label>Card number</label>
                     <input 
                       type="text" 
-                      placeholder="e.g. 1234 4567 8901 2345" 
+                      placeholder="e.g. 4242 4242 4242 4242" 
                       value={form.cardNumber}
-                      onChange={e => setForm({ ...form, cardNumber: e.target.value })}
+                      onChange={e => {
+                        setForm({ ...form, cardNumber: e.target.value });
+                        if (formErrors.cardNumber) setFormErrors({ ...formErrors, cardNumber: null });
+                      }}
                       className={formErrors.cardNumber ? 'error' : ''}
                       autoComplete="off"
                     />
+                    {formErrors.cardNumber && <span className="error-text" style={{color: 'red', fontSize: '12px'}}>{Array.isArray(formErrors.cardNumber) ? formErrors.cardNumber[0] : formErrors.cardNumber}</span>}
                   </div>
                 </div>
+                
                 <div className="form-row">
                   <div className="input-group">
                     <label>Expiry</label>
@@ -413,10 +462,15 @@ export default function BookingModal({ session, onClose, filterOptions }) {
                       type="text" 
                       placeholder="e.g. 12/34" 
                       value={form.expiry}
-                      onChange={e => setForm({ ...form, expiry: e.target.value })}
-                      className={formErrors.expiry ? 'error' : ''}
+                      onChange={e => {
+                        setForm({ ...form, expiry: e.target.value });
+                        if (formErrors.expiration) setFormErrors({ ...formErrors, expiration: null });
+                        if (formErrors.expiry) setFormErrors({ ...formErrors, expiry: null });
+                      }}
+                      className={(formErrors.expiration || formErrors.expiry) ? 'error' : ''}
                       autoComplete="off"
                     />
+                    {(formErrors.expiration || formErrors.expiry) && <span className="error-text" style={{color: 'red', fontSize: '12px'}}>{Array.isArray(formErrors.expiration || formErrors.expiry) ? (formErrors.expiration || formErrors.expiry)[0] : (formErrors.expiration || formErrors.expiry)}</span>}
                   </div>
                   <div className="input-group">
                     <label>CVV</label>
@@ -424,10 +478,14 @@ export default function BookingModal({ session, onClose, filterOptions }) {
                       type="password" 
                       placeholder="e.g. 123" 
                       value={form.cvv}
-                      onChange={e => setForm({ ...form, cvv: e.target.value })}
+                      onChange={e => {
+                        setForm({ ...form, cvv: e.target.value });
+                        if (formErrors.cvv) setFormErrors({ ...formErrors, cvv: null });
+                      }}
                       className={formErrors.cvv ? 'error' : ''}
                       autoComplete="new-password"
                     />
+                    {formErrors.cvv && <span className="error-text" style={{color: 'red', fontSize: '12px'}}>{Array.isArray(formErrors.cvv) ? formErrors.cvv[0] : formErrors.cvv}</span>}
                   </div>
                 </div>
               </div>
@@ -480,10 +538,10 @@ export default function BookingModal({ session, onClose, filterOptions }) {
               <h2>Booking confirmed!</h2>
               <p>Your tickets are ready. We've sent the confirmation to your email.</p>
               
-              <div className="order-badge">ORDER #{orderResponse?.id || orderResponse?.orderNumber || 'KX-48291'}</div>
+              <div className="order-badge">ORDER #{orderResponse?.reference || 'KX-48291'}</div>
               
               <div className="success-actions" style={{marginTop: "30px"}}>
-                <button className="btn-primary" onClick={handleClose}>View my tickets</button>
+                <button className="btn-primary" onClick={() => { handleClose(); navigate('/profile', { state: { activeTab: 'tickets' } }); }}>View my tickets</button>
               </div>
             </div>
           )}

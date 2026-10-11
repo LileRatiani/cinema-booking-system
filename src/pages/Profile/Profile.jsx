@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { updateProfile, fetchOrders } from '../../api'; // Adjust path
 import './Profile.css';
 import { useLocation } from 'react-router-dom';
+import { updateProfile, fetchOrders, refundOrder } from '../../api';
 
 export default function Profile({ currentUser, onProfileUpdate }) {
   // Tabs
@@ -48,14 +48,20 @@ export default function Profile({ currentUser, onProfileUpdate }) {
     }
   }, [currentUser]);
 
-  // 2. Load Tickets when switching tabs
+ // 2. Load Tickets when switching tabs
   useEffect(() => {
     if (activeMainTab === 'tickets') {
       const loadOrders = async () => {
         setIsTicketsLoading(true);
         const { status, data } = await fetchOrders(activeTicketTab);
-        if (status === 200 && data?.data) {
-          setOrders(data.data);
+        
+        if (status === 200) {
+          // Safely extract the array whether it's flat, nested once, or paginated
+          const fetchedOrders = Array.isArray(data) 
+            ? data 
+            : (Array.isArray(data?.data) ? data.data : data?.data?.data || []);
+            
+          setOrders(fetchedOrders);
         } else {
           setOrders([]);
         }
@@ -105,6 +111,29 @@ export default function Profile({ currentUser, onProfileUpdate }) {
     setIsSaving(false);
   };
 
+  const handleRefund = async (orderId) => {
+    // 1. Confirm with the user first since it cannot be undone
+    if (!window.confirm("Are you sure you want to refund this order? This action cannot be undone.")) {
+      return;
+    }
+
+    const { status, data } = await refundOrder(orderId);
+
+    if (status === 200) {
+      // The API returns the updated order. 
+      // Since refunded orders move to the "Past" tab, we can instantly remove it from the "Upcoming" view.
+      setOrders(prevOrders => prevOrders.filter(order => order.id !== orderId));
+      alert("Refund successful. The seats have been released and the order moved to your Past tickets.");
+    } else if (status === 422) {
+      // The 422 message specifies if it was already refunded or inside the cutoff
+      alert(data.message || "This order cannot be refunded.");
+    } else if (status === 401 || status === 403) {
+      alert("Unauthorized to refund this order.");
+    } else {
+      alert("An error occurred while processing your refund. Please try again.");
+    }
+  };
+  
   // --- TICKET RENDERER ---
   const renderTicketCard = (order) => {
     const { session, tickets } = order;
@@ -162,6 +191,7 @@ export default function Profile({ currentUser, onProfileUpdate }) {
                 className={`btn-refund ${!order.isRefundable ? 'btn-disabled' : ''}`}
                 disabled={!order.isRefundable}
                 title={!order.isRefundable ? "Refunds are unavailable within 2 hours of the session start time." : "Refund this order"}
+                onClick={() => handleRefund(order.reference)} 
               >
                 Refund
               </button>

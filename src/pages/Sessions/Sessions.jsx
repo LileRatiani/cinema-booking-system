@@ -5,12 +5,18 @@ import './Sessions.css';
 
 const generateDates = () => {
   const dates = [];
-  const today = new Date("2026-10-08T00:00:00+04:00"); 
+  const today = new Date(); 
+  
   for (let i = 0; i < 7; i++) {
     const d = new Date(today);
     d.setDate(today.getDate() + i);
+    
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    
     dates.push({
-      full: d.toISOString().split('T')[0],
+      full: `${yyyy}-${mm}-${dd}`,
       dayName: d.toLocaleDateString('en-US', { weekday: 'short' }),
       dayNum: d.getDate()
     });
@@ -18,17 +24,14 @@ const generateDates = () => {
   return dates;
 };
 
-// Make sure { filterOptions } is properly destructured right here!
 export default function Sessions({ filterOptions }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const dates = useMemo(() => generateDates(), []);
 
-  // State for real API data
   const [sessionsData, setSessionsData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Extract current filters from URL
   const selectedDate = searchParams.get('date') || dates[0].full;
   const selectedVenues = searchParams.get('venue_id') ? searchParams.get('venue_id').split(',') : [];
   const selectedFormats = searchParams.get('format_id') ? searchParams.get('format_id').split(',') : [];
@@ -37,22 +40,26 @@ export default function Sessions({ filterOptions }) {
   const sortOrder = searchParams.get('sort') || 'time_asc';
   const currentPage = parseInt(searchParams.get('page') || '1', 10);
 
-  // Fetch real sessions from backend whenever URL search parameters change
+  // Dynamic Formats: Calculate which formats are available at the currently selected venues
+  const availableFormats = useMemo(() => {
+    if (selectedVenues.length === 0) return filterOptions?.formats || [];
+    
+    const validFormatIds = new Set();
+    filterOptions?.venues?.forEach(v => {
+      if (selectedVenues.includes(String(v.id))) {
+        v.formats?.forEach(f => validFormatIds.add(f.id));
+      }
+    });
+    
+    return filterOptions?.formats?.filter(f => validFormatIds.has(f.id)) || [];
+  }, [selectedVenues, filterOptions]);
+
   useEffect(() => {
     const loadSessions = async () => {
       setIsLoading(true);
       
-      const apiParams = new URLSearchParams();
-      
-      if (selectedDate) apiParams.append('date', selectedDate);
-      if (sortOrder) apiParams.append('sort', sortOrder);
-      
-      selectedVenues.forEach(id => apiParams.append('venue_id[]', id));
-      selectedFormats.forEach(id => apiParams.append('format_id[]', id));
-      selectedLangs.forEach(id => apiParams.append('language_id[]', id));
-      selectedTimes.forEach(time => apiParams.append('time[]', time));
-
-      const response = await fetchSessions(apiParams.toString());
+      // Pass the browser's exact query string directly to the API
+      const response = await fetchSessions(searchParams.toString());
       const items = response?.data || response || [];
       
       setSessionsData(items);
@@ -62,9 +69,29 @@ export default function Sessions({ filterOptions }) {
     loadSessions();
   }, [searchParams]);
 
-  // Enforce strict frontend pagination (4 items per page)
-  const totalPages = Math.ceil(sessionsData.length / 4) || 1;
-  const currentSlicedData = sessionsData.slice((currentPage - 1) * 4, currentPage * 4);
+// Bulletproof frontend filter: scrubs nested sessions that the backend forgot to filter out
+  const filteredMovies = useMemo(() => {
+    return sessionsData.map(movieGroup => {
+      // Filter the nested sessions array inside each movie
+      const matchedSessions = movieGroup.sessions.filter(session => {
+        const passVenue = selectedVenues.length === 0 || selectedVenues.includes(String(session.venue?.id));
+        const passFormat = selectedFormats.length === 0 || selectedFormats.includes(String(session.format?.id));
+        const passLang = selectedLangs.length === 0 || selectedLangs.includes(String(session.language?.id));
+        const passTime = selectedTimes.length === 0 || selectedTimes.includes(String(session.timeBand));
+        
+        return passVenue && passFormat && passLang && passTime;
+      });
+      
+      // Return the movie but with ONLY the matching sessions
+      return { ...movieGroup, sessions: matchedSessions };
+    })
+    // Remove movies that have 0 matching sessions left
+    .filter(movieGroup => movieGroup.sessions.length > 0);
+  }, [sessionsData, selectedVenues, selectedFormats, selectedLangs, selectedTimes]);
+
+  // Enforce strict frontend pagination on the scrubbed data
+  const totalPages = Math.ceil(filteredMovies.length / 4) || 1;
+  const currentSlicedData = filteredMovies.slice((currentPage - 1) * 4, currentPage * 4);
 
   const updateParams = (key, value) => {
     const newParams = new URLSearchParams(searchParams);
@@ -106,7 +133,6 @@ export default function Sessions({ filterOptions }) {
           
           <div className="sess-filter-section">
             <h3 className="sess-filter-label">VENUE</h3>
-            {/* Safely map over the dynamic global venues */}
             {filterOptions?.venues?.map(v => (
               <label key={v.id} className="sess-custom-checkbox">
                 <input 
@@ -138,7 +164,8 @@ export default function Sessions({ filterOptions }) {
 
           <div className="sess-filter-section">
             <h3 className="sess-filter-label">FORMAT</h3>
-            {filterOptions?.formats?.map(f => (
+            {/* Renders dynamic formats based on venue selection */}
+            {availableFormats?.map(f => (
               <label key={f.id} className="sess-custom-checkbox">
                 <input 
                   type="checkbox" 
@@ -168,12 +195,11 @@ export default function Sessions({ filterOptions }) {
 
           <div className="sess-filter-section">
             <h3 className="sess-filter-label">TIME OF DAY</h3>
-            {/* Swapped out the hardcoded array for the dynamic backend array */}
             {filterOptions?.timeBands?.map(t => (
               <label key={t.id} className="sess-custom-checkbox">
                 <input 
                   type="checkbox" 
-                  checked={selectedTimes.includes(t.id)}
+                  checked={selectedTimes.includes(String(t.id))} // Fixed string conversion bug
                   onChange={() => toggleArrayParam('time', selectedTimes, t.id)}
                 />
                 <span className="sess-checkmark"></span>
@@ -194,7 +220,6 @@ export default function Sessions({ filterOptions }) {
             <div className="sess-sort-control">
               <span>Sort:</span>
               <select value={sortOrder} onChange={(e) => updateParams('sort', e.target.value)}>
-                {/* Optional: You could also dynamically map filterOptions?.sorts here if you wanted! */}
                 <option value="time_asc">Showtime: earliest first</option>
                 <option value="time_desc">Showtime: latest first</option>
                 <option value="price_asc">Price: Low to High</option>
